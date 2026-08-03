@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import dayjs from 'dayjs'
 
 export interface ToeicTask {
   id: string
@@ -41,13 +42,106 @@ export const useToeicStore = defineStore('toeic', {
       { id: 'tt4', title: '英文課本', iconKey: 'book', todayLabel: 'Unit 8 · 完成 60%', pct: 60, statusLabel: '進行中', done: false },
       { id: 'tt5', title: '每日對話', iconKey: 'chat', todayLabel: '今日 0 / 1 段', pct: 0, statusLabel: '待完成', done: false },
     ] as ToeicTask[],
+
+    examModalOpen: false,
+    examForm: { title: '', date: '' },
+    examTouched: false,
+
+    scoreModalOpen: false,
+    scoreForm: { lastMockScore: '450', targetScore: '600' },
+
+    taskModalOpen: false,
+    taskEditId: null as string | null,
+    taskForm: { title: '', todayLabel: '', pct: '0' },
+    taskTouched: false,
   }),
+  getters: {
+    taskModalTitle(state): string {
+      return state.taskEditId ? '編輯多益任務' : '新增多益任務'
+    },
+  },
   actions: {
     deleteTask(id: string) {
       this.tasks = this.tasks.filter((t) => t.id !== id)
     },
     deleteExamDate(id: string) {
       this.examDates = this.examDates.filter((e) => e.id !== id)
+    },
+
+    openExamModal() {
+      this.examForm = { title: '', date: '' }
+      this.examTouched = false
+      this.examModalOpen = true
+    },
+    closeExamModal() {
+      this.examModalOpen = false
+    },
+    saveExamDate() {
+      if (!this.examForm.title.trim() || !this.examForm.date) {
+        this.examTouched = true
+        return
+      }
+      const daysLeft = dayjs(this.examForm.date).diff(dayjs(), 'day')
+      this.examDates.push({
+        id: 'ex' + Date.now(),
+        title: this.examForm.title.trim(),
+        date: this.examForm.date,
+        daysLeft: Math.max(daysLeft, 0),
+      })
+      this.examModalOpen = false
+    },
+
+    openScoreModal() {
+      this.scoreForm = { lastMockScore: String(this.lastMockScore), targetScore: String(this.targetScore) }
+      this.scoreModalOpen = true
+    },
+    closeScoreModal() {
+      this.scoreModalOpen = false
+    },
+    saveScore() {
+      this.lastMockScore = Number(this.scoreForm.lastMockScore) || 0
+      this.targetScore = Number(this.scoreForm.targetScore) || 0
+      this.scoreModalOpen = false
+    },
+
+    openTaskModal(editId: string | null = null) {
+      const task = editId ? this.tasks.find((t) => t.id === editId) : null
+      this.taskEditId = editId
+      this.taskForm = { title: task?.title ?? '', todayLabel: task?.todayLabel ?? '', pct: task ? String(task.pct) : '0' }
+      this.taskTouched = false
+      this.taskModalOpen = true
+    },
+    closeTaskModal() {
+      this.taskModalOpen = false
+    },
+    saveTask() {
+      if (!this.taskForm.title.trim()) {
+        this.taskTouched = true
+        return
+      }
+      const pct = Math.min(100, Math.max(0, Number(this.taskForm.pct) || 0))
+      const done = pct >= 100
+      if (this.taskEditId) {
+        const t = this.tasks.find((x) => x.id === this.taskEditId)
+        if (t) {
+          t.title = this.taskForm.title.trim()
+          t.todayLabel = this.taskForm.todayLabel.trim()
+          t.pct = pct
+          t.done = done
+          t.statusLabel = done ? '已完成' : pct > 0 ? '進行中' : '待完成'
+        }
+      } else {
+        this.tasks.push({
+          id: 'tt' + Date.now(),
+          title: this.taskForm.title.trim(),
+          iconKey: 'goal',
+          todayLabel: this.taskForm.todayLabel.trim(),
+          pct,
+          statusLabel: done ? '已完成' : pct > 0 ? '進行中' : '待完成',
+          done,
+        })
+      }
+      this.taskModalOpen = false
     },
   },
 })

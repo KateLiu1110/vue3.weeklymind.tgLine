@@ -3,6 +3,7 @@ import { computed, reactive } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { useCoreStore } from '@/stores/core'
 import Icon from '@/components/common/Icon.vue'
+import Modal from '@/components/common/Modal.vue'
 
 const props = defineProps<{ moduleId: string }>()
 const core = useCoreStore()
@@ -21,13 +22,10 @@ function deleteColumn(id: string) {
   mod.value.boardColumns = mod.value.boardColumns.filter((c) => c.id !== id)
 }
 
-const newProject = reactive({ name: '', caption: '' })
-function addProject() {
-  const name = newProject.name.trim()
-  if (!name || mod.value.boardColumns.length === 0) return
-  mod.value.boardColumns[0].items.push({ id: 'p' + Date.now(), name, caption: newProject.caption.trim() })
-  newProject.name = ''
-  newProject.caption = ''
+function deleteProject(id: string) {
+  for (const col of mod.value.boardColumns) {
+    col.items = col.items.filter((p) => p.id !== id)
+  }
 }
 </script>
 
@@ -43,9 +41,7 @@ function addProject() {
         >
           ＋ 新增看板區
         </button>
-        <input v-model="newProject.name" placeholder="任務名稱" class="text-xs px-2.5 py-2 rounded-control border border-sand-200 outline-none w-28" />
-        <input v-model="newProject.caption" placeholder="敘述" class="text-xs px-2.5 py-2 rounded-control border border-sand-200 outline-none w-28" />
-        <button type="button" class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer" @click="addProject">
+        <button type="button" class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer" @click="core.openBoardModal()">
           + 新增任務
         </button>
       </div>
@@ -74,12 +70,61 @@ function addProject() {
           <span v-if="col.deletable" class="cursor-pointer text-danger shrink-0 flex" @click="deleteColumn(col.id)"><Icon name="trash" :size="13" /></span>
         </div>
         <VueDraggable v-model="col.items" group="custom-board-projects" class="flex flex-col gap-2.5 min-h-[60px]" :animation="150">
-          <div v-for="proj in col.items" :key="proj.id" class="bg-cream-50 border border-cream-150 rounded-card p-3.5 cursor-grab active:cursor-grabbing">
-            <span class="text-sm font-medium text-ink-900">{{ proj.name }}</span>
+          <div
+            v-for="proj in col.items"
+            :key="proj.id"
+            class="bg-cream-50 border border-cream-150 rounded-card p-3.5 cursor-grab active:cursor-grabbing"
+            @click="core.openBoardModal(proj.id)"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-medium text-ink-900">{{ proj.name }}</span>
+              <span class="cursor-pointer text-danger shrink-0 flex" @click.stop="deleteProject(proj.id)"><Icon name="trash" :size="12" /></span>
+            </div>
             <p v-if="proj.caption" class="mt-1.5 mb-0 text-xs text-sand-500 leading-relaxed">{{ proj.caption }}</p>
           </div>
         </VueDraggable>
       </div>
     </div>
+
+    <Modal v-if="core.boardModalOpen" :title="core.boardEditId ? '編輯任務' : '新增任務'" :width="480" @close="core.closeBoardModal()">
+      <label class="text-xs font-medium text-ink-700">任務名稱</label>
+      <input
+        v-model="core.boardForm.name"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="core.boardTouched && !core.boardForm.name.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">敘述</label>
+      <textarea v-model="core.boardForm.desc" rows="2" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none resize-y" />
+      <div class="flex gap-3 mb-3.5">
+        <div class="flex-1">
+          <label class="text-xs font-medium text-ink-700">開始日</label>
+          <input v-model="core.boardForm.start" type="date" class="w-full mt-1.5 px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+        </div>
+        <div class="flex-1">
+          <label class="text-xs font-medium text-ink-700">完成日</label>
+          <input v-model="core.boardForm.end" type="date" class="w-full mt-1.5 px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+        </div>
+      </div>
+      <label class="text-xs font-medium text-ink-700">完成度</label>
+      <div class="flex gap-2.5 my-1.5 mb-3.5">
+        <div class="flex-1">
+          <div class="text-xs text-sand-500 mb-1">每日</div>
+          <input v-model="core.boardForm.daily" type="number" min="0" max="100" class="w-full px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+        </div>
+        <div class="flex-1">
+          <div class="text-xs text-sand-500 mb-1">每週</div>
+          <input v-model="core.boardForm.weekly" type="number" min="0" max="100" class="w-full px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+        </div>
+        <div class="flex-1">
+          <div class="text-xs text-sand-500 mb-1">每月</div>
+          <input v-model="core.boardForm.monthly" type="number" min="0" max="100" class="w-full px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+        </div>
+      </div>
+      <p v-if="core.boardTouched && !core.boardForm.name.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫任務名稱</p>
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeBoardModal()">取消</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.saveBoardProjectForm()">儲存</button>
+      </div>
+    </Modal>
   </div>
 </template>

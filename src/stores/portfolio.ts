@@ -46,10 +46,48 @@ export const usePortfolioStore = defineStore('portfolio', {
         items: [{ id: 'fe', name: '前端知識', caption: 'React / Vue 筆記整理' }],
       },
     ] as Column[],
+
+    modalOpen: false,
+    editId: null as string | null,
+    form: { name: '', desc: '', start: '', end: '', daily: '0', weekly: '0', monthly: '0', fileName: '' },
+    touched: false,
   }),
   getters: {
     isEmpty(state): boolean {
       return state.columns.every((c) => c.items.length === 0)
+    },
+    modalTitle(state): string {
+      return state.editId ? '編輯專案' : '新增專案'
+    },
+  },
+  actions: {
+    openNewProject() {
+      this.editId = null
+      this.form = { name: '', desc: '', start: '', end: '', daily: '0', weekly: '0', monthly: '0', fileName: '' }
+      this.touched = false
+      this.modalOpen = true
+    },
+    closeModal() {
+      this.modalOpen = false
+    },
+    saveForm() {
+      if (!this.form.name.trim()) {
+        this.touched = true
+        return
+      }
+      if (this.editId) {
+        for (const col of this.columns) {
+          const p = col.items.find((x) => x.id === this.editId)
+          if (p) {
+            p.name = this.form.name.trim()
+            p.caption = this.form.desc.trim()
+            break
+          }
+        }
+      } else {
+        this.columns[0].items.push({ id: 'pj' + Date.now(), name: this.form.name.trim(), caption: this.form.desc.trim() })
+      }
+      this.modalOpen = false
     },
   },
 })

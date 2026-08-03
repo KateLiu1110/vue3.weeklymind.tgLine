@@ -4,6 +4,7 @@ import type { ChartData, ChartOptions } from 'chart.js'
 import { useRetroStore } from '@/stores/retro'
 import Icon from '@/components/common/Icon.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
+import Modal from '@/components/common/Modal.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const retro = useRetroStore()
@@ -56,10 +57,10 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
       <div class="rounded-card p-5 mb-4 bg-cream-50 border border-cream-150">
         <div class="flex items-center justify-between mb-3.5">
           <span class="text-sm font-medium text-ink-800">各項目標進度表</span>
-          <span class="text-xs text-brand-primary font-medium cursor-pointer">＋ 新增目標</span>
+          <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="retro.openRetroGoalModal()">＋ 新增目標</span>
         </div>
         <div class="flex flex-col gap-3.5">
-          <div v-for="g in retro.goals" :key="g.id">
+          <div v-for="g in retro.goalsDisplay" :key="g.id">
             <div class="flex justify-between text-xs text-ink-700 mb-1">
               <span>{{ g.title }}</span>
               <span class="flex items-center gap-2">
@@ -99,5 +100,47 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
         </div>
       </div>
     </template>
+
+    <Modal v-if="retro.retroGoalModalOpen" title="新增目標追蹤" @close="retro.closeRetroGoalModal()">
+      <label class="text-xs font-medium text-ink-700">目標名稱</label>
+      <input
+        v-model="retro.retroGoalForm.title"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="retro.retroGoalTouched && !retro.retroGoalForm.title.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">開始日期</label>
+      <input
+        v-model="retro.retroGoalForm.start"
+        type="date"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="retro.retroGoalTouched && !retro.retroGoalForm.start ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">預計天數（選填，不填則視為持續進行）</label>
+      <input
+        v-model="retro.retroGoalForm.totalDays"
+        type="number"
+        min="1"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      />
+      <p v-if="retro.retroGoalTouched && (!retro.retroGoalForm.title.trim() || !retro.retroGoalForm.start)" class="text-danger text-xs mb-2.5">
+        ⚠ 請填寫目標名稱與開始日期
+      </p>
+      <div class="flex gap-2.5 mt-2">
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer"
+          @click="retro.closeRetroGoalModal()"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer"
+          @click="retro.saveRetroGoal()"
+        >
+          儲存
+        </button>
+      </div>
+    </Modal>
   </div>
 </template>

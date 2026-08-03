@@ -21,6 +21,13 @@ export const useSportStore = defineStore('sport', {
       ],
       瑜珈: [{ id: 'y1', name: '晨間伸展 20 分', done: false }],
     } as Record<string, SportTodo[]>,
+
+    tabAddMode: false,
+    tabAddText: '',
+
+    modalOpen: false,
+    form: { name: '', category: '', link: '' },
+    touched: false,
   }),
   getters: {
     currentTodos(state): SportTodo[] {
@@ -37,6 +44,44 @@ export const useSportStore = defineStore('sport', {
     },
     deleteTodo(id: string) {
       this.todosByCategory[this.activeCategory] = this.currentTodos.filter((t) => t.id !== id)
+    },
+    deleteCategory(cat: string) {
+      this.categories = this.categories.filter((c) => c !== cat)
+      delete this.todosByCategory[cat]
+      if (this.activeCategory === cat) this.activeCategory = this.categories[0] ?? ''
+    },
+    openTabAdd() {
+      this.tabAddMode = true
+      this.tabAddText = ''
+    },
+    cancelTabAdd() {
+      this.tabAddMode = false
+    },
+    confirmTabAdd() {
+      const name = this.tabAddText.trim()
+      if (!name) return
+      this.categories.push(name)
+      this.todosByCategory[name] = []
+      this.activeCategory = name
+      this.tabAddMode = false
+    },
+    openSportModal() {
+      this.form = { name: '', category: this.activeCategory, link: '' }
+      this.touched = false
+      this.modalOpen = true
+    },
+    closeSportModal() {
+      this.modalOpen = false
+    },
+    saveSportForm() {
+      if (!this.form.name.trim()) {
+        this.touched = true
+        return
+      }
+      const cat = this.form.category || this.activeCategory
+      if (!this.todosByCategory[cat]) this.todosByCategory[cat] = []
+      this.todosByCategory[cat].push({ id: 'sp' + Date.now(), name: this.form.name.trim(), done: false })
+      this.modalOpen = false
     },
   },
 })

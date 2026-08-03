@@ -13,6 +13,11 @@
   --color-brand-primary-dark: #2c4a36;
   --color-brand-secondary: #3e5a3e;
   --color-brand-secondary-muted: #5a6357;
+  /* Reserved: named in README_專案架構與生產指令.md's 視覺規範 section but not
+     present anywhere in the standalone.html source (grepped, zero hits). Kept
+     as spec-only tokens for future design use — not wired into any component. */
+  --color-brand-secondary-alt: #1a5c38;
+  --color-card-bg-alt: #e8f0ea;
   --color-line-brand: #06c755;
   --color-line-brand-dark: #06834e;
   --color-line-brand-bg: #e6f6ec;

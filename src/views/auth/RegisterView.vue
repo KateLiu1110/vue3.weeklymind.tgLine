@@ -54,11 +54,7 @@ function register() {
   >
     <div class="w-full max-w-md bg-cream-50 border border-cream-150 rounded-card p-9">
       <div class="flex flex-col items-center gap-2.5 mb-6">
-        <div
-          class="w-18 h-18 rounded-full bg-cream-100 flex items-center justify-center text-3xl"
-        >
-          🐾
-        </div>
+        <img src="/assets/mascot-dog-2.png" class="w-18 h-18 object-contain" />
         <div class="text-center">
           <div class="font-medium text-ink-800" style="font-size: 19px">建立帳號</div>
           <p class="text-sand-500 mt-0.5" style="font-size: 12.5px">開始你的第一份週計畫</p>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useSportStore } from '@/stores/sport'
 import Icon from '@/components/common/Icon.vue'
+import Modal from '@/components/common/Modal.vue'
 
 const sport = useSportStore()
 </script>
@@ -17,15 +18,36 @@ const sport = useSportStore()
           @click="sport.setCategory(cat)"
         >
           {{ cat }}
+          <span class="opacity-60 text-xs" @click.stop="sport.deleteCategory(cat)">✕</span>
         </span>
         <span
           class="w-8 h-8 rounded-full border-[1.5px] border-dashed border-sand-275 flex items-center justify-center cursor-pointer text-ink-700 text-base font-medium"
+          @click="sport.openTabAdd()"
         >
           +
         </span>
       </div>
-      <button type="button" class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer">
+      <button
+        type="button"
+        class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer"
+        @click="sport.openSportModal()"
+      >
         + 新增運動
+      </button>
+    </div>
+
+    <div v-if="sport.tabAddMode" class="flex gap-2 -mt-2.5 mb-4.5">
+      <input
+        v-model="sport.tabAddText"
+        placeholder="輸入新分頁名稱"
+        class="flex-1 max-w-[220px] px-3 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+        @keyup.enter="sport.confirmTabAdd()"
+      />
+      <button type="button" class="px-3.5 py-2 rounded-control bg-brand-primary text-white text-xs font-medium cursor-pointer" @click="sport.confirmTabAdd()">
+        新增
+      </button>
+      <button type="button" class="px-3 py-2 rounded-control border border-sand-200 text-ink-700 text-xs cursor-pointer" @click="sport.cancelTabAdd()">
+        取消
       </button>
     </div>
 
@@ -52,5 +74,43 @@ const sport = useSportStore()
         <p class="mt-1 mb-0 text-xs text-sand-400">點擊「＋ 新增運動」建立第一筆紀錄</p>
       </div>
     </div>
+
+    <Modal v-if="sport.modalOpen" title="新增運動" :width="440" @close="sport.closeSportModal()">
+      <label class="text-xs font-medium text-ink-700">運動名稱</label>
+      <input
+        v-model="sport.form.name"
+        placeholder="例：晨間慢跑 5 公里"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="sport.touched && !sport.form.name.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">運動分類（選填）</label>
+      <select v-model="sport.form.category" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none">
+        <option value="">不分類</option>
+        <option v-for="cat in sport.categories" :key="cat" :value="cat">{{ cat }}</option>
+      </select>
+      <label class="text-xs font-medium text-ink-700">貼上連結（圖片 / 影片，選填）</label>
+      <input
+        v-model="sport.form.link"
+        placeholder="https://..."
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      />
+      <p v-if="sport.touched && !sport.form.name.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫運動名稱</p>
+      <div class="flex gap-2.5 mt-2">
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer"
+          @click="sport.closeSportModal()"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer"
+          @click="sport.saveSportForm()"
+        >
+          儲存
+        </button>
+      </div>
+    </Modal>
   </div>
 </template>

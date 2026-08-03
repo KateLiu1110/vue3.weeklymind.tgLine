@@ -5,12 +5,18 @@ import { useCoreStore } from '@/stores/core'
 import { useExecStore } from '@/stores/exec'
 import Icon from '@/components/common/Icon.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
+import Modal from '@/components/common/Modal.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const core = useCoreStore()
 const exec = useExecStore()
 
 const hasExecData = computed(() => core.plans.length > 0 || exec.todayTasks.length > 0)
+
+const monthlyReport = computed(() => [
+  ...core.plans.map((p) => ({ month: '進行中', title: p.title, summary: p.sub, pct: p.pct })),
+  ...core.milestones.map((m) => ({ month: '里程碑', title: m.title, summary: m.desc, pct: m.progress })),
+])
 
 const radarData = computed<ChartData<'radar'>>(() => ({
   labels: exec.radarSkills.map((s) => s.label),
@@ -125,7 +131,10 @@ const stageBarOptions: ChartOptions<'bar'> = {
         <div class="flex-1 bg-cream-75 border border-cream-150 rounded-card p-3.5 flex flex-col">
           <div class="flex items-center justify-between mb-3.5">
             <span class="text-xs font-medium text-ink-800">本週階段進度</span>
-            <span class="flex items-center gap-1 text-xs text-brand-primary font-medium cursor-pointer whitespace-nowrap">
+            <span
+              class="flex items-center gap-1 text-xs text-brand-primary font-medium cursor-pointer whitespace-nowrap"
+              @click="exec.openMonthlyReport()"
+            >
               <Icon name="book" :size="11" />每月計畫表 →
             </span>
           </div>
@@ -146,6 +155,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
 
       <div class="flex items-center justify-between mt-5">
         <span class="text-xs font-medium text-ink-800">分類每日進度</span>
+        <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="exec.openExecCatModal()">＋ 新增分類</span>
       </div>
       <div class="flex flex-col gap-2.5 mt-2.5">
         <div v-for="c in exec.catProgress" :key="c.id">
@@ -167,7 +177,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
     <div class="flex flex-col gap-3.5 min-w-0">
       <div class="bg-gold-accent rounded-card px-5 py-7 text-center relative overflow-hidden shadow">
         <div class="flex items-center justify-center gap-2">
-          <span class="text-2xl">🔥</span>
+          <Icon name="fire" :size="24" class="text-ink-amber" />
           <span class="font-medium text-ink-amber whitespace-nowrap" style="font-size: 22px">連續 {{ core.streakDays }} 天</span>
         </div>
         <p class="mt-2 text-sm font-medium text-ink-amber/80 leading-relaxed">保持運動與學習節奏！</p>
@@ -199,5 +209,51 @@ const stageBarOptions: ChartOptions<'bar'> = {
         <p class="m-0 text-xs text-sand-400">在「計畫中心」新增計畫後，任務會自動顯示在這裡</p>
       </div>
     </div>
+
+    <Modal v-if="exec.execCatModalOpen" title="新增追蹤分類" :width="380" @close="exec.closeExecCatModal()">
+      <label class="text-xs font-medium text-ink-700">分類名稱</label>
+      <input
+        v-model="exec.execCatForm.name"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="exec.execCatTouched && !exec.execCatForm.name.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">目前進度 %</label>
+      <input
+        v-model="exec.execCatForm.value"
+        type="number"
+        min="0"
+        max="100"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      />
+      <p v-if="exec.execCatTouched && !exec.execCatForm.name.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫分類名稱</p>
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="exec.closeExecCatModal()">
+          取消
+        </button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="exec.saveExecCat()">
+          儲存
+        </button>
+      </div>
+    </Modal>
+
+    <Modal v-if="exec.monthlyReportOpen" title="每月計畫表" :width="520" @close="exec.closeMonthlyReport()">
+      <p class="m-0 mb-4 text-xs text-sand-500">系統最多保存近 3–6 個月的打卡紀錄，供覆盤與趨勢分析使用</p>
+      <div v-if="monthlyReport.length > 0" class="flex flex-col gap-2.5">
+        <div v-for="(m, i) in monthlyReport" :key="i" class="rounded-card p-3.5 flex items-center gap-3.5 bg-cream-100">
+          <div class="w-11 h-11 rounded-xl bg-cream-50 flex items-center justify-center text-xs font-medium text-clay-500 shrink-0 text-center">
+            {{ m.month }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-ink-900">{{ m.title }}</div>
+            <div class="text-xs text-sand-500 mt-0.5">{{ m.summary }}</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="font-medium text-brand-primary" style="font-size: 16px">{{ m.pct }}%</div>
+            <div class="text-xs text-sand-500">完成率</div>
+          </div>
+        </div>
+      </div>
+      <p v-else class="m-0 text-xs text-sand-400">尚無計畫或里程碑資料，先到計劃管理新增</p>
+    </Modal>
   </div>
 </template>

@@ -25,7 +25,7 @@ export default defineConfigWithVueTs(
   {
     name: 'app/component-name-exceptions',
     rules: {
-      'vue/multi-word-component-names': ['error', { ignores: ['Icon'] }],
+      'vue/multi-word-component-names': ['error', { ignores: ['Icon', 'Modal'] }],
     },
   },
 

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import BotChatShell from '@/components/bot/BotChatShell.vue'
 </script>
 
@@ -8,7 +8,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
     style="font-family: 'Noto Sans TC', 'Space Grotesk', system-ui, sans-serif"
   >
     <div class="max-w-6xl mx-auto mb-10 flex items-center gap-4 flex-wrap">
-      <div class="w-13.5 h-13.5 flex items-center justify-center text-4xl">🐾</div>
+      <img src="/assets/mascot-dog-2.png" class="w-13.5 h-13.5 object-contain" />
       <div>
         <h1 class="m-0 font-medium text-ink-800" style="font-size: 28px; letter-spacing: -0.01em">
           WeeklyMind <span class="text-sand-400 font-normal">LINE Bot 互動情境</span>
@@ -26,7 +26,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
           <span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">今天 07:30</span>
         </div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[78%]" style="border-radius: 4px 16px 16px 16px">
             <p class="m-0 text-sm leading-relaxed text-ink-900">早安主人 ☀️ 今天的任務卡來囉，一共 8 項</p>
           </div>
@@ -68,19 +68,19 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
         <div class="text-center"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">18:42</span></div>
         <div class="flex justify-end"><div class="bg-accent-green-bright px-3.5 py-2.5 max-w-[78%]" style="border-radius: 16px 4px 16px 16px"><p class="m-0 text-sm leading-relaxed text-accent-green-dark">今天跑了6km，腳有點酸</p></div></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[78%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">6km 記錄完成！本週累計 22km 🏃 腳酸代表有練到，明天是休息日，好好恢復！</p></div>
         </div>
         <div class="text-center mt-1"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">20:15</span></div>
         <div class="flex justify-end"><div class="bg-accent-green-bright px-3.5 py-2.5 max-w-[78%]" style="border-radius: 16px 4px 16px 16px"><p class="m-0 text-sm leading-relaxed text-accent-green-dark">背了 eloquent / tenacious / pragmatic</p></div></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[78%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">三個單字記錄完成 ✅ 明天幫你複習 + 出例句！連續 14 天英文打卡 🔥</p></div>
         </div>
         <div class="text-center mt-1"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">21:30</span></div>
         <div class="flex justify-end"><div class="bg-accent-green-bright px-3.5 py-2.5 max-w-[78%]" style="border-radius: 16px 4px 16px 16px"><p class="m-0 text-sm leading-relaxed text-accent-green-dark">今天學了 Pinia Colada 的 useQuery</p></div></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[82%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">收到！已記錄到「前端知識」📚 連續第 8 天，繼續加油！明天建議學 staleTime 設定。</p></div>
         </div>
       </BotChatShell>
@@ -130,7 +130,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
       <BotChatShell caption="04 · 週日下週計畫確認">
         <div class="text-center"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">週日 19:00</span></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[82%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">這週完成率 78%，幫你排好下週計畫了，快看看 👇</p></div>
         </div>
         <div class="flex gap-2 items-end">
@@ -221,7 +221,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
         <div class="text-center"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">15:20</span></div>
         <div class="flex justify-end"><div class="bg-accent-green-bright px-3.5 py-2.5 max-w-[74%]" style="border-radius: 16px 4px 16px 16px"><p class="m-0 text-sm leading-relaxed text-accent-green-dark">你今天心情怎麼樣</p></div></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[82%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">還不太懂你的意思～可以試試「今天跑了 5km」、貼一個連結給我，或點下面選單 🐾</p></div>
         </div>
         <div class="flex gap-2 justify-end flex-wrap pl-9.5">
@@ -232,7 +232,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
         <div class="text-center mt-1.5"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">15:21</span></div>
         <div class="flex justify-end"><div class="bg-accent-green-bright px-3.5 py-2.5 max-w-[60%]" style="border-radius: 16px 4px 16px 16px"><p class="m-0 text-sm leading-relaxed text-accent-green-dark">哈哈沒事</p></div></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[78%]" style="border-radius: 4px 16px 16px 16px">
             <p class="m-0 text-sm leading-relaxed text-ink-900">
               好的！我在這裡陪你，有任務要回報隨時說一聲 🐾<br />
@@ -246,7 +246,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
       <BotChatShell caption="08 · 多益每日 5 項打卡">
         <div class="text-center"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">車上通勤 · 08:10</span></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[80%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">通勤時間到！今天的多益 1 小時菜單 🚌</p></div>
         </div>
         <div class="flex gap-2 items-end">
@@ -268,7 +268,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
         </div>
         <div class="flex justify-end"><div class="bg-accent-green-bright px-3.5 py-2.5 max-w-[78%]" style="border-radius: 16px 4px 16px 16px"><p class="m-0 text-sm leading-relaxed text-accent-green-dark">克漏字寫完了，錯了2題</p></div></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[80%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">記錄完成 3/5！錯的題目已存進複習庫，明天優先重考 💪 別忘了週三 19:00 英文課</p></div>
         </div>
       </BotChatShell>
@@ -277,7 +277,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
       <BotChatShell caption="09 · 運動分類打卡">
         <div class="text-center"><span class="bg-black/14 text-white text-xs px-3 py-1 rounded-full">19:20</span></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[78%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">運動完成了嗎？點選今天做了哪個項目 👇</p></div>
         </div>
         <div class="flex gap-2 items-end">
@@ -290,7 +290,7 @@ import BotChatShell from '@/components/bot/BotChatShell.vue'
         </div>
         <div class="flex justify-end"><div class="bg-accent-green-bright px-3.5 py-2.5 max-w-[78%]" style="border-radius: 16px 4px 16px 16px"><p class="m-0 text-sm leading-relaxed text-accent-green-dark">健身力量 · 深蹲4x8+引體向上3x6</p></div></div>
         <div class="flex gap-2 items-end">
-          <span class="w-7.5 h-7.5 rounded-lg bg-white flex items-center justify-center shrink-0 text-sm">🐾</span>
+          <img src="/assets/mascot-dog-2.png" class="w-7.5 h-7.5 rounded-lg object-cover shrink-0 bg-white" />
           <div class="bg-white px-3.5 py-2.5 max-w-[80%]" style="border-radius: 4px 16px 16px 16px"><p class="m-0 text-sm leading-relaxed text-ink-900">記錄完成！總負重本月已 +4.2kg 📈 明天排的是瑜珈恢復日，好好放鬆</p></div>
         </div>
       </BotChatShell>

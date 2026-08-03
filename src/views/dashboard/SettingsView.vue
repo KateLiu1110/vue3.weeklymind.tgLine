@@ -7,10 +7,10 @@ const core = useCoreStore()
 const settings = useSettingsStore()
 
 const avatarOptions = [
-  { id: 'default', emoji: '🐕' },
-  { id: 'avatar1', emoji: '🐶' },
-  { id: 'avatar2', emoji: '🐩' },
-  { id: 'avatar3', emoji: '🦮' },
+  { id: 'default', src: '/assets/mascot-dog-2.png' },
+  { id: 'avatar1', src: '/assets/pet-avatar-1.png' },
+  { id: 'avatar2', src: '/assets/pet-avatar-2.png' },
+  { id: 'avatar3', src: '/assets/pet-avatar-3.png' },
 ]
 </script>
 
@@ -59,11 +59,11 @@ const avatarOptions = [
           v-for="av in avatarOptions"
           :key="av.id"
           type="button"
-          class="w-14 h-14 rounded-2xl cursor-pointer flex items-center justify-center text-2xl bg-cream-100 border-2"
+          class="w-14 h-14 rounded-2xl cursor-pointer overflow-hidden bg-cream-100 border-2"
           :class="settings.selectedAvatar === av.id ? 'border-brand-primary' : 'border-transparent'"
           @click="settings.selectAvatar(av.id)"
         >
-          {{ av.emoji }}
+          <img :src="av.src" class="w-full h-full object-cover" />
         </button>
         <label
           class="w-14 h-14 rounded-2xl border-2 border-dashed border-sand-250 flex items-center justify-center cursor-pointer text-sand-400 text-xl shrink-0"

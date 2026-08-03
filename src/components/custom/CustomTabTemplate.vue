@@ -2,6 +2,7 @@
 import { computed, reactive } from 'vue'
 import { useCoreStore } from '@/stores/core'
 import Icon from '@/components/common/Icon.vue'
+import Modal from '@/components/common/Modal.vue'
 
 const props = defineProps<{ moduleId: string }>()
 const core = useCoreStore()
@@ -30,13 +31,6 @@ function deleteCat(id: string) {
   }
 }
 
-const newItemName = reactive({ value: '' })
-function addItem() {
-  const name = newItemName.value.trim()
-  if (!name || !activeCat.value) return
-  activeCat.value.items.push({ id: 'ti' + Date.now(), name, done: false })
-  newItemName.value = ''
-}
 function toggleItem(id: string) {
   const item = activeCat.value?.items.find((i) => i.id === id)
   if (item) item.done = !item.done
@@ -68,12 +62,9 @@ function deleteItem(id: string) {
           +
         </span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <input v-model="newItemName.value" placeholder="項目名稱" class="text-xs px-2.5 py-2 rounded-control border border-sand-200 outline-none w-32" @keyup.enter="addItem" />
-        <button type="button" class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer" @click="addItem">
-          + 新增項目
-        </button>
-      </div>
+      <button type="button" class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer" @click="core.openTabItemModal()">
+        + 新增項目
+      </button>
     </div>
 
     <div v-if="catAdd.open" class="flex gap-2 -mt-2 mb-4.5">
@@ -110,8 +101,25 @@ function deleteItem(id: string) {
       </div>
       <div v-else class="text-center py-5 px-1">
         <p class="m-0 text-xs font-medium text-sand-600">「{{ activeCat?.label }}」尚無項目</p>
-        <p class="mt-1 mb-0 text-xs text-sand-400">輸入項目名稱並點擊「＋ 新增項目」建立第一筆紀錄</p>
+        <p class="mt-1 mb-0 text-xs text-sand-400">點擊「＋ 新增項目」建立第一筆紀錄</p>
       </div>
     </div>
+
+    <Modal v-if="core.tabItemModalOpen" title="新增項目" :width="380" @close="core.closeTabItemModal()">
+      <label class="text-xs font-medium text-ink-700">項目名稱</label>
+      <input
+        v-model="core.tabItemForm.name"
+        placeholder="例：晨間慢跑 5 公里"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="core.tabItemTouched && !core.tabItemForm.name.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">貼上連結（選填）</label>
+      <input v-model="core.tabItemForm.link" placeholder="https://..." class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+      <p v-if="core.tabItemTouched && !core.tabItemForm.name.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫項目名稱</p>
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeTabItemModal()">取消</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.saveTabItem()">儲存</button>
+      </div>
+    </Modal>
   </div>
 </template>

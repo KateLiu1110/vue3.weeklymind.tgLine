@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed } from 'vue'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore } from '@/stores/core'
 import Icon from '@/components/common/Icon.vue'
 import InlineEditText from '@/components/common/InlineEditText.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
+import Modal from '@/components/common/Modal.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const props = defineProps<{ moduleId: string }>()
@@ -19,22 +20,6 @@ const ringOffset = computed(() => {
   return 264 - 264 * pct
 })
 
-const newTaskTitle = reactive({ value: '' })
-function addDailyTask() {
-  const title = newTaskTitle.value.trim()
-  if (!title) return
-  mod.value.dailyTasks.push({ id: 'dt' + Date.now(), title, done: false })
-  newTaskTitle.value = ''
-}
-function toggleTask(id: string) {
-  const t = mod.value.dailyTasks.find((x) => x.id === id)
-  if (t) t.done = !t.done
-}
-function deleteTask(id: string) {
-  mod.value.dailyTasks = mod.value.dailyTasks.filter((t) => t.id !== id)
-}
-
-const newScore = reactive({ label: '', value: '' })
 const scoreChartData = computed<ChartData<'bar'>>(() => ({
   labels: mod.value.scores.map((s) => s.label),
   datasets: [
@@ -47,31 +32,8 @@ const scoreChartData = computed<ChartData<'bar'>>(() => ({
   ],
 }))
 const scoreChartOptions: ChartOptions<'bar'> = {
-  scales: {
-    x: { display: false },
-    y: { display: false },
-  },
+  scales: { x: { display: false }, y: { display: false } },
   plugins: { legend: { display: false } },
-}
-function addScore() {
-  if (!newScore.label || !newScore.value) return
-  mod.value.scores.push({ id: 'sc' + Date.now(), label: newScore.label, value: Number(newScore.value) || 0 })
-  newScore.label = ''
-  newScore.value = ''
-}
-function deleteScore(id: string) {
-  mod.value.scores = mod.value.scores.filter((s) => s.id !== id)
-}
-
-const newExam = reactive({ title: '', date: '' })
-function addExamDate() {
-  if (!newExam.title || !newExam.date) return
-  mod.value.examDates.push({ id: 'ed' + Date.now(), title: newExam.title, date: newExam.date })
-  newExam.title = ''
-  newExam.date = ''
-}
-function deleteExamDate(id: string) {
-  mod.value.examDates = mod.value.examDates.filter((e) => e.id !== id)
 }
 </script>
 
@@ -133,24 +95,18 @@ function deleteExamDate(id: string) {
 
       <div class="flex items-center justify-between mb-3">
         <span class="text-sm font-medium text-ink-800">每日任務</span>
-        <div class="flex items-center gap-1.5">
-          <input
-            v-model="newTaskTitle.value"
-            placeholder="任務名稱"
-            class="text-xs px-2.5 py-1.5 rounded-control border border-sand-200 outline-none w-32"
-            @keyup.enter="addDailyTask"
-          />
-          <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="addDailyTask">＋ 新增任務</span>
-        </div>
+        <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="core.openDailyTaskModal()">＋ 新增任務</span>
       </div>
       <div v-if="mod.dailyTasks.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
         <div v-for="dt in mod.dailyTasks" :key="dt.id" class="rounded-card p-4 bg-cream-50 border border-cream-150">
           <div class="flex items-center justify-between gap-1.5">
-            <span class="flex items-center gap-2 min-w-0 overflow-hidden cursor-pointer" @click="toggleTask(dt.id)">
+            <span class="flex items-center gap-2 min-w-0 overflow-hidden cursor-pointer" @click="core.openDailyTaskModal(dt.id)">
               <Icon name="checkCircle" :size="15" :class="dt.done ? 'text-brand-primary' : 'text-sand-300'" />
               <span class="text-sm font-medium text-ink-900 overflow-hidden text-ellipsis whitespace-nowrap">{{ dt.title }}</span>
             </span>
-            <span class="cursor-pointer text-danger shrink-0 flex" @click="deleteTask(dt.id)"><Icon name="trash" :size="13" /></span>
+            <span class="cursor-pointer text-danger shrink-0 flex" @click="mod.dailyTasks = mod.dailyTasks.filter((t) => t.id !== dt.id)">
+              <Icon name="trash" :size="13" />
+            </span>
           </div>
           <div class="h-1.5 rounded-full bg-cream-150 mt-2">
             <div class="h-full rounded-full" :class="dt.done ? 'bg-brand-primary' : 'bg-cream-150'" :style="{ width: dt.done ? '100%' : '0%' }" />
@@ -171,30 +127,26 @@ function deleteExamDate(id: string) {
       </div>
       <div v-else class="rounded-card text-center py-5 px-1 mb-3.5 bg-cream-50 border border-cream-150">
         <p class="m-0 text-xs font-medium text-sand-600">尚無每日任務</p>
-        <p class="mt-1 mb-0 text-xs text-sand-400">輸入任務名稱並點擊「＋ 新增任務」建立第一個每日任務</p>
+        <p class="mt-1 mb-0 text-xs text-sand-400">點擊「＋ 新增任務」建立第一個每日任務</p>
       </div>
 
       <div class="rounded-card p-4.5 bg-cream-50 border border-cream-150">
         <div class="flex items-center justify-between mb-2.5">
           <span class="text-sm font-medium text-ink-800">分數趨勢</span>
-          <div class="flex items-center gap-1.5">
-            <input v-model="newScore.label" placeholder="標籤" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none w-16" />
-            <input v-model="newScore.value" placeholder="分數" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none w-14" />
-            <span class="text-xs text-brand-primary font-medium cursor-pointer whitespace-nowrap" @click="addScore">＋ 新增分數</span>
-          </div>
+          <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="core.openScoreEntryModal()">＋ 新增分數</span>
         </div>
         <div v-if="mod.scores.length > 0">
           <ChartCanvas type="bar" :data="scoreChartData" :options="scoreChartOptions" :height="120" />
           <div class="flex gap-2.5 mt-1.5">
             <div v-for="sc in mod.scores" :key="sc.id" class="flex-1 flex items-center justify-center gap-1">
-              <span class="text-xs text-sand-500 underline decoration-dotted">{{ sc.label }}</span>
-              <span class="cursor-pointer text-danger flex" @click="deleteScore(sc.id)"><Icon name="trash" :size="11" /></span>
+              <span class="text-xs text-sand-500 underline decoration-dotted cursor-pointer" @click="core.openScoreEntryModal(sc.id)">{{ sc.label }}</span>
+              <span class="cursor-pointer text-danger flex" @click="mod.scores = mod.scores.filter((s) => s.id !== sc.id)"><Icon name="trash" :size="11" /></span>
             </div>
           </div>
         </div>
         <div v-else class="text-center py-4 px-1">
           <p class="m-0 text-xs font-medium text-sand-600">尚無分數紀錄</p>
-          <p class="mt-1 mb-0 text-xs text-sand-400">輸入標籤與分數並點擊「＋ 新增分數」記錄第一筆成績</p>
+          <p class="mt-1 mb-0 text-xs text-sand-400">點擊「＋ 新增分數」記錄第一筆成績</p>
         </div>
       </div>
     </div>
@@ -208,16 +160,15 @@ function deleteExamDate(id: string) {
             display-class="flex items-center gap-1.5 text-sm font-medium text-ink-800"
             input-class="text-sm font-medium text-ink-800 w-24"
           />
+          <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="core.openExamDateModal()">＋ 新增</span>
         </div>
-        <div class="flex gap-1.5 mb-3">
-          <input v-model="newExam.title" placeholder="標題" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none flex-1 min-w-0" />
-          <input v-model="newExam.date" type="date" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none w-28" />
-        </div>
-        <span class="text-xs text-brand-primary font-medium cursor-pointer block mb-3" @click="addExamDate">＋ 新增</span>
         <p v-if="mod.examDates.length === 0" class="m-0 text-xs text-sand-400">尚未新增考試日期</p>
         <div v-else class="flex flex-col gap-3">
           <div v-for="ed in mod.examDates" :key="ed.id" class="bg-cream-100 rounded-card p-3 relative">
-            <span class="absolute top-2.5 right-2.5 cursor-pointer text-danger flex" @click="deleteExamDate(ed.id)">
+            <span
+              class="absolute top-2.5 right-2.5 cursor-pointer text-danger flex"
+              @click="mod.examDates = mod.examDates.filter((e) => e.id !== ed.id)"
+            >
               <Icon name="trash" :size="13" />
             </span>
             <div class="text-xs font-medium text-ink-900 pr-4">{{ ed.title }}</div>
@@ -233,21 +184,100 @@ function deleteExamDate(id: string) {
             display-class="text-sm font-medium text-ink-800"
             input-class="text-sm font-medium text-ink-800 w-24"
           />
+          <span class="cursor-pointer text-sand-500 flex" @click="core.openGoalScoreModal()"><Icon name="edit" :size="14" /></span>
         </div>
-        <div class="flex flex-col gap-1.5">
-          <div class="flex items-center gap-1.5">
-            <input v-model="mod.lastLabel" placeholder="標籤，如：上次" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none flex-1 min-w-0" />
-            <input v-model="mod.lastScore" placeholder="數值" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none w-16" />
+        <template v-if="mod.targetScore">
+          <div class="flex justify-between items-center py-2.5 border-b border-dashed border-cream-150">
+            <span class="text-xs text-sand-600">{{ mod.lastLabel }}</span>
+            <span class="font-medium text-ink-900 text-base">{{ mod.lastScore }}</span>
           </div>
-          <div class="flex items-center gap-1.5">
-            <input v-model="mod.targetLabel" placeholder="標籤，如：目標" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none flex-1 min-w-0" />
-            <input v-model="mod.targetScore" placeholder="數值" class="text-xs px-2 py-1.5 rounded-control border border-sand-200 outline-none w-16" />
+          <div class="flex justify-between items-center pt-2.5">
+            <span class="text-xs text-sand-600">{{ mod.targetLabel }}</span>
+            <span class="font-medium text-brand-primary text-base">{{ mod.targetScore }}</span>
           </div>
-        </div>
-        <p v-if="!mod.targetScore" class="mt-2.5 mb-0 text-xs text-sand-400 leading-relaxed">
-          尚未設定，可用於任何前後對比數值（如：自媒體觀看人數、1 個月前 / 1 個月後）
+        </template>
+        <p v-else class="m-0 text-xs text-sand-400 leading-relaxed">
+          尚未設定，點擊右上角編輯圖示新增（如：自媒體觀看人數、1 個月前 / 1 個月後）
         </p>
       </div>
     </div>
+
+    <Modal :title="core.dailyTaskEditId ? '編輯每日任務' : '新增每日任務'" :width="380" v-if="core.dailyTaskModalOpen" @close="core.closeDailyTaskModal()">
+      <label class="text-xs font-medium text-ink-700">任務名稱</label>
+      <input
+        v-model="core.dailyTaskForm.title"
+        placeholder="例：背 20 個單字"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="core.dailyTaskTouched && !core.dailyTaskForm.title.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <p v-if="core.dailyTaskTouched && !core.dailyTaskForm.title.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫任務名稱</p>
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeDailyTaskModal()">取消</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.saveDailyTask()">儲存</button>
+      </div>
+    </Modal>
+
+    <Modal v-if="core.scoreEntryModalOpen" :title="core.scoreEntryEditId ? '編輯分數' : '新增分數'" :width="380" @close="core.closeScoreEntryModal()">
+      <label class="text-xs font-medium text-ink-700">標籤（如：6 月模擬）</label>
+      <input
+        v-model="core.scoreEntryForm.label"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="core.scoreEntryTouched && !core.scoreEntryForm.label.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">紀錄</label>
+      <input
+        v-model="core.scoreEntryForm.value"
+        type="number"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="core.scoreEntryTouched && !core.scoreEntryForm.value.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <p v-if="core.scoreEntryTouched && (!core.scoreEntryForm.label.trim() || !core.scoreEntryForm.value.trim())" class="text-danger text-xs mb-2.5">
+        ⚠ 請填寫標籤與紀錄
+      </p>
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeScoreEntryModal()">取消</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.saveScoreEntry()">儲存</button>
+      </div>
+    </Modal>
+
+    <Modal v-if="core.examDateModalOpen" title="新增目標" :width="380" @close="core.closeExamDateModal()">
+      <label class="text-xs font-medium text-ink-700">目標名稱</label>
+      <input
+        v-model="core.examDateForm.title"
+        placeholder="請填寫目標，如：多益公開測驗"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="core.examDateTouched && !core.examDateForm.title.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">達成日期</label>
+      <input
+        v-model="core.examDateForm.date"
+        type="date"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="core.examDateTouched && !core.examDateForm.date ? 'border-coral' : 'border-sand-200'"
+      />
+      <p v-if="core.examDateTouched && (!core.examDateForm.title.trim() || !core.examDateForm.date)" class="text-danger text-xs mb-2.5">
+        ⚠ 請填寫達成目標與日期
+      </p>
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeExamDateModal()">取消</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.saveExamDate()">儲存</button>
+      </div>
+    </Modal>
+
+    <Modal v-if="core.goalScoreModalOpen" title="設定分數目標" :width="380" @close="core.closeGoalScoreModal()">
+      <label class="text-xs font-medium text-ink-700">項目一標題</label>
+      <input v-model="core.goalScoreForm.lastLabel" placeholder="例：上次模考 / 1 個月前" class="w-full mt-1.5 mb-3 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+      <label class="text-xs font-medium text-ink-700">項目一數值</label>
+      <input v-model="core.goalScoreForm.lastScore" placeholder="例：450 或 1.2萬" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+      <label class="text-xs font-medium text-ink-700">項目二標題</label>
+      <input v-model="core.goalScoreForm.targetLabel" placeholder="例：本次目標 / 1 個月後" class="w-full mt-1.5 mb-3 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+      <label class="text-xs font-medium text-ink-700">項目二數值</label>
+      <input v-model="core.goalScoreForm.targetScore" placeholder="例：600 或 3萬" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+      <div class="flex gap-2.5 mt-2">
+        <span class="cursor-pointer text-danger flex items-center px-1" @click="core.clearGoalScoreForm()"><Icon name="trash" :size="16" /></span>
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeGoalScoreModal()">取消</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.saveGoalScoreForm()">儲存</button>
+      </div>
+    </Modal>
   </div>
 </template>

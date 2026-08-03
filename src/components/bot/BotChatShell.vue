@@ -6,7 +6,7 @@ defineProps<{ caption: string }>()
   <div class="flex flex-col items-center gap-3.5">
     <div class="w-[280px] h-[500px] rounded-card overflow-hidden flex flex-col bg-line-chat-bg">
       <div class="bg-line-brand px-4 py-3.5 flex items-center gap-2.5 shrink-0">
-        <span class="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0 text-lg">🐾</span>
+        <img src="/assets/mascot-dog-2.png" class="w-8 h-8 rounded-lg object-cover shrink-0 bg-white" />
         <div class="flex-1">
           <div class="text-white font-medium text-sm">WeeklyMind</div>
           <div class="text-xs" style="color: rgba(255, 255, 255, 0.85)">LINE 官方帳號</div>

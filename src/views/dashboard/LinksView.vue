@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLinksStore } from '@/stores/links'
 import Icon from '@/components/common/Icon.vue'
+import Modal from '@/components/common/Modal.vue'
 
 const links = useLinksStore()
 </script>
@@ -11,7 +12,11 @@ const links = useLinksStore()
       <p class="m-0 text-xs text-sand-600 flex-1 min-w-[240px]">
         在 LINE 貼上連結，AI 依平台自動分類歸檔。點擊卡片可直接匯入作品集看板的靈感任務。
       </p>
-      <button type="button" class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer whitespace-nowrap shrink-0">
+      <button
+        type="button"
+        class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer whitespace-nowrap shrink-0"
+        @click="links.openLinkModal()"
+      >
         ＋ 新增連結
       </button>
     </div>
@@ -51,5 +56,50 @@ const links = useLinksStore()
         </div>
       </div>
     </div>
+
+    <Modal v-if="links.modalOpen" title="新增連結" @close="links.closeLinkModal()">
+      <label class="text-xs font-medium text-ink-700">標題</label>
+      <input
+        v-model="links.form.title"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="links.touched && !links.form.title.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">連結網址</label>
+      <input
+        v-model="links.form.url"
+        placeholder="https://..."
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="links.touched && !links.form.url.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">平台（依網址自動偵測）</label>
+      <div class="mt-1.5 mb-3.5 px-3 py-2.5 rounded-control bg-cream-100 text-sm text-ink-700 font-medium">
+        {{ links.detectedPlatform.label }}
+      </div>
+      <label class="text-xs font-medium text-ink-700">分類標籤（選填）</label>
+      <input
+        v-model="links.form.tag"
+        placeholder="例：設計靈感"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      />
+      <p v-if="links.touched && (!links.form.title.trim() || !links.form.url.trim())" class="text-danger text-xs mb-2.5">
+        ⚠ 請填寫標題與連結網址
+      </p>
+      <div class="flex gap-2.5 mt-2">
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer"
+          @click="links.closeLinkModal()"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer"
+          @click="links.saveLink()"
+        >
+          儲存
+        </button>
+      </div>
+    </Modal>
   </div>
 </template>

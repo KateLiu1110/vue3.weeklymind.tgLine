@@ -72,6 +72,12 @@ export const useExecStore = defineStore('exec', {
       { id: 'c3', name: '作品集', value: 45, color: '#2f6bd8', auto: true },
       { id: 'c4', name: '生活雜項', value: 55, color: '#b08968', auto: false },
     ] as CategoryProgress[],
+
+    execCatModalOpen: false,
+    execCatForm: { name: '', value: '0' },
+    execCatTouched: false,
+
+    monthlyReportOpen: false,
   }),
   actions: {
     toggleTask(id: string) {
@@ -80,6 +86,35 @@ export const useExecStore = defineStore('exec', {
     },
     removeCategory(id: string) {
       this.catProgress = this.catProgress.filter((c) => c.id !== id)
+    },
+    openExecCatModal() {
+      this.execCatForm = { name: '', value: '0' }
+      this.execCatTouched = false
+      this.execCatModalOpen = true
+    },
+    closeExecCatModal() {
+      this.execCatModalOpen = false
+    },
+    saveExecCat() {
+      if (!this.execCatForm.name.trim()) {
+        this.execCatTouched = true
+        return
+      }
+      const palette = ['#33513f', '#c9a876', '#2f6bd8', '#b08968']
+      this.catProgress.push({
+        id: 'c' + Date.now(),
+        name: this.execCatForm.name.trim(),
+        value: Number(this.execCatForm.value) || 0,
+        color: palette[this.catProgress.length % palette.length],
+        auto: false,
+      })
+      this.execCatModalOpen = false
+    },
+    openMonthlyReport() {
+      this.monthlyReportOpen = true
+    },
+    closeMonthlyReport() {
+      this.monthlyReportOpen = false
     },
   },
 })

@@ -5,6 +5,7 @@ import { useCoreStore } from '@/stores/core'
 import { useToeicStore } from '@/stores/toeic'
 import Icon from '@/components/common/Icon.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
+import Modal from '@/components/common/Modal.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const core = useCoreStore()
@@ -70,7 +71,7 @@ const scoreTrendOptions: ChartOptions<'bar'> = {
 
       <div class="flex items-center justify-between mb-3">
         <span class="text-sm font-medium text-ink-800">每日任務</span>
-        <span class="text-xs text-brand-primary font-medium cursor-pointer">＋ 新增任務</span>
+        <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="toeic.openTaskModal()">＋ 新增任務</span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
         <div v-for="tt in toeic.tasks" :key="tt.id" class="rounded-card p-4 bg-cream-50 border border-cream-150 relative">
@@ -80,7 +81,7 @@ const scoreTrendOptions: ChartOptions<'bar'> = {
               <span class="text-sm font-medium text-ink-900 overflow-hidden text-ellipsis whitespace-nowrap">{{ tt.title }}</span>
             </span>
             <span class="flex items-center gap-1.5 shrink-0">
-              <span class="cursor-pointer text-sand-500 flex"><Icon name="edit" :size="13" /></span>
+              <span class="cursor-pointer text-sand-500 flex" @click="toeic.openTaskModal(tt.id)"><Icon name="edit" :size="13" /></span>
               <span class="cursor-pointer text-danger flex" @click="toeic.deleteTask(tt.id)"><Icon name="trash" :size="13" /></span>
             </span>
           </div>
@@ -111,7 +112,7 @@ const scoreTrendOptions: ChartOptions<'bar'> = {
       <div class="rounded-card p-4.5 bg-cream-50 border border-cream-150">
         <div class="flex items-center justify-between mb-3">
           <span class="flex items-center gap-1.5 text-sm font-medium text-ink-800"><Icon name="calendar" :size="14" />考試天數</span>
-          <span class="text-xs text-brand-primary font-medium cursor-pointer">＋ 新增</span>
+          <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="toeic.openExamModal()">＋ 新增</span>
         </div>
         <p v-if="toeic.examDates.length === 0" class="m-0 text-xs text-sand-400">尚未新增考試日期</p>
         <div v-else class="flex flex-col gap-3">
@@ -130,7 +131,7 @@ const scoreTrendOptions: ChartOptions<'bar'> = {
       <div class="rounded-card p-4.5 mt-3.5 bg-cream-50 border border-cream-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-sm font-medium text-ink-800">模考分數</span>
-          <span class="cursor-pointer text-sand-500 flex"><Icon name="edit" :size="14" /></span>
+          <span class="cursor-pointer text-sand-500 flex" @click="toeic.openScoreModal()"><Icon name="edit" :size="14" /></span>
         </div>
         <div class="flex justify-between items-center py-2.5 border-b border-dashed border-cream-150">
           <span class="text-xs text-sand-600">上次模考</span>
@@ -142,5 +143,78 @@ const scoreTrendOptions: ChartOptions<'bar'> = {
         </div>
       </div>
     </div>
+
+    <Modal v-if="toeic.taskModalOpen" :title="toeic.taskModalTitle" :width="380" @close="toeic.closeTaskModal()">
+      <label class="text-xs font-medium text-ink-700">任務名稱</label>
+      <input
+        v-model="toeic.taskForm.title"
+        placeholder="例：聽力練習"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="toeic.taskTouched && !toeic.taskForm.title.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">今日進度說明</label>
+      <input
+        v-model="toeic.taskForm.todayLabel"
+        placeholder="例：今日 0 / 1 篇"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      />
+      <label class="text-xs font-medium text-ink-700">完成度 (%)</label>
+      <input
+        v-model="toeic.taskForm.pct"
+        type="number"
+        min="0"
+        max="100"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      />
+      <p v-if="toeic.taskTouched && !toeic.taskForm.title.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫任務名稱</p>
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="toeic.closeTaskModal()">
+          取消
+        </button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="toeic.saveTask()">
+          儲存
+        </button>
+      </div>
+    </Modal>
+
+    <Modal v-if="toeic.examModalOpen" title="新增考試日期" :width="360" @close="toeic.closeExamModal()">
+      <label class="text-xs font-medium text-ink-700">考試名稱</label>
+      <input
+        v-model="toeic.examForm.title"
+        placeholder="例：多益公開測驗"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="toeic.examTouched && !toeic.examForm.title.trim() ? 'border-coral' : 'border-sand-200'"
+      />
+      <label class="text-xs font-medium text-ink-700">考試日期</label>
+      <input
+        v-model="toeic.examForm.date"
+        type="date"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
+        :class="toeic.examTouched && !toeic.examForm.date ? 'border-coral' : 'border-sand-200'"
+      />
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="toeic.closeExamModal()">
+          取消
+        </button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="toeic.saveExamDate()">
+          儲存
+        </button>
+      </div>
+    </Modal>
+
+    <Modal v-if="toeic.scoreModalOpen" title="編輯模考分數" :width="360" @close="toeic.closeScoreModal()">
+      <label class="text-xs font-medium text-ink-700">上次模考分數</label>
+      <input v-model="toeic.scoreForm.lastMockScore" type="number" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+      <label class="text-xs font-medium text-ink-700">本次目標分數</label>
+      <input v-model="toeic.scoreForm.targetScore" type="number" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
+      <div class="flex gap-2.5 mt-2">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="toeic.closeScoreModal()">
+          取消
+        </button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="toeic.saveScore()">
+          儲存
+        </button>
+      </div>
+    </Modal>
   </div>
 </template>

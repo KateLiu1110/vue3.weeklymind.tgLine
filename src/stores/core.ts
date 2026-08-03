@@ -223,6 +223,20 @@ const SEED_MILESTONES: Milestone[] = [
   },
 ]
 
+const PLAN_COLOR_PALETTE = ['#33513f', '#c9a876', '#2f6bd8', '#b08968']
+
+export const MODULE_OPTIONS = [
+  { value: 'overview', label: '計劃管理' },
+  { value: 'exec', label: '執行中心' },
+  { value: 'toeic', label: '多益英文' },
+  { value: 'portfolio', label: '作品集看板' },
+  { value: 'links', label: '連結收藏' },
+  { value: 'sport', label: '運動' },
+  { value: 'retro', label: '覆盤中心' },
+  { value: 'settings', label: '設定' },
+  { value: 'linebot', label: 'LineBot 設定' },
+]
+
 export const useCoreStore = defineStore('core', {
   state: () => ({
     demoEmpty: false,
@@ -237,6 +251,47 @@ export const useCoreStore = defineStore('core', {
     eveningTime: '21:00',
     weeklyReportDay: '五',
     weeklyReportTime: '21:30',
+
+    helpModalOpen: false,
+
+    planModalOpen: false,
+    allPlansModalOpen: false,
+    planForm: { title: '', sub: '', module: '', weekdays: [] as number[], startTime: '', endTime: '', months: '1' },
+    planTouched: false,
+
+    milestoneModalOpen: false,
+    milestoneForm: { title: '', desc: '', module: '', tag: '重點', progress: '0' },
+    milestoneTouched: false,
+
+    dailyTaskModalOpen: false,
+    dailyTaskEditId: null as string | null,
+    dailyTaskForm: { title: '' },
+    dailyTaskTouched: false,
+
+    scoreEntryModalOpen: false,
+    scoreEntryEditId: null as string | null,
+    scoreEntryForm: { label: '', value: '' },
+    scoreEntryTouched: false,
+
+    examDateModalOpen: false,
+    examDateForm: { title: '', date: '' },
+    examDateTouched: false,
+
+    goalScoreModalOpen: false,
+    goalScoreForm: { lastLabel: '', lastScore: '', targetLabel: '', targetScore: '' },
+
+    boardModalOpen: false,
+    boardEditId: null as string | null,
+    boardForm: { name: '', desc: '', start: '', end: '', daily: '0', weekly: '0', monthly: '0', fileName: '' },
+    boardTouched: false,
+
+    tabItemModalOpen: false,
+    tabItemForm: { name: '', link: '' },
+    tabItemTouched: false,
+
+    customItemModalOpen: false,
+    customItemForm: { text: '' },
+    customItemTouched: false,
   }),
   getters: {
     activeCustomModule(state): CustomModule | undefined {
@@ -289,6 +344,277 @@ export const useCoreStore = defineStore('core', {
     },
     removeMilestone(id: string) {
       this.milestones = this.milestones.filter((m) => m.id !== id)
+    },
+
+    openHelpModal() {
+      this.helpModalOpen = true
+    },
+    closeHelpModal() {
+      this.helpModalOpen = false
+    },
+
+    openPlanModal() {
+      this.planForm = { title: '', sub: '', module: '', weekdays: [], startTime: '', endTime: '', months: '1' }
+      this.planTouched = false
+      this.planModalOpen = true
+    },
+    closePlanModal() {
+      this.planModalOpen = false
+    },
+    openAllPlans() {
+      this.allPlansModalOpen = true
+    },
+    closeAllPlans() {
+      this.allPlansModalOpen = false
+    },
+    togglePlanWeekday(day: number) {
+      const idx = this.planForm.weekdays.indexOf(day)
+      if (idx >= 0) this.planForm.weekdays.splice(idx, 1)
+      else this.planForm.weekdays.push(day)
+    },
+    savePlan() {
+      if (!this.planForm.title.trim()) {
+        this.planTouched = true
+        return
+      }
+      const color = PLAN_COLOR_PALETTE[this.plans.length % PLAN_COLOR_PALETTE.length]
+      this.plans.push({
+        id: 'pl' + Date.now(),
+        title: this.planForm.title.trim(),
+        sub: this.planForm.sub.trim(),
+        pct: 0,
+        checkinsDone: 0,
+        color,
+        module: this.planForm.module || 'overview',
+        weekdays: [...this.planForm.weekdays],
+        startTime: this.planForm.startTime,
+        endTime: this.planForm.endTime,
+      })
+      this.planModalOpen = false
+    },
+
+    openMilestoneModal() {
+      this.milestoneForm = { title: '', desc: '', module: '', tag: '重點', progress: '0' }
+      this.milestoneTouched = false
+      this.milestoneModalOpen = true
+    },
+    closeMilestoneModal() {
+      this.milestoneModalOpen = false
+    },
+    saveMilestone() {
+      if (!this.milestoneForm.title.trim()) {
+        this.milestoneTouched = true
+        return
+      }
+      const color = PLAN_COLOR_PALETTE[this.milestones.length % PLAN_COLOR_PALETTE.length]
+      this.milestones.push({
+        id: 'ms' + Date.now(),
+        title: this.milestoneForm.title.trim(),
+        tag: this.milestoneForm.tag,
+        tagBg: '#f0eada',
+        tagCol: color,
+        desc: this.milestoneForm.desc.trim(),
+        progress: Number(this.milestoneForm.progress) || 0,
+        color,
+        module: this.milestoneForm.module || 'overview',
+      })
+      this.milestoneModalOpen = false
+    },
+
+    openDailyTaskModal(editId: string | null = null) {
+      const mod = this.activeCustomModule
+      const task = editId ? mod?.dailyTasks.find((t) => t.id === editId) : null
+      this.dailyTaskEditId = editId
+      this.dailyTaskForm = { title: task?.title ?? '' }
+      this.dailyTaskTouched = false
+      this.dailyTaskModalOpen = true
+    },
+    closeDailyTaskModal() {
+      this.dailyTaskModalOpen = false
+    },
+    saveDailyTask() {
+      const title = this.dailyTaskForm.title.trim()
+      if (!title) {
+        this.dailyTaskTouched = true
+        return
+      }
+      const mod = this.activeCustomModule
+      if (!mod) return
+      if (this.dailyTaskEditId) {
+        const t = mod.dailyTasks.find((x) => x.id === this.dailyTaskEditId)
+        if (t) t.title = title
+      } else {
+        mod.dailyTasks.push({ id: 'dt' + Date.now(), title, done: false })
+      }
+      this.dailyTaskModalOpen = false
+    },
+
+    openScoreEntryModal(editId: string | null = null) {
+      const mod = this.activeCustomModule
+      const score = editId ? mod?.scores.find((s) => s.id === editId) : null
+      this.scoreEntryEditId = editId
+      this.scoreEntryForm = { label: score?.label ?? '', value: score ? String(score.value) : '' }
+      this.scoreEntryTouched = false
+      this.scoreEntryModalOpen = true
+    },
+    closeScoreEntryModal() {
+      this.scoreEntryModalOpen = false
+    },
+    saveScoreEntry() {
+      if (!this.scoreEntryForm.label.trim() || !this.scoreEntryForm.value.trim()) {
+        this.scoreEntryTouched = true
+        return
+      }
+      const mod = this.activeCustomModule
+      if (!mod) return
+      const value = Number(this.scoreEntryForm.value) || 0
+      if (this.scoreEntryEditId) {
+        const s = mod.scores.find((x) => x.id === this.scoreEntryEditId)
+        if (s) {
+          s.label = this.scoreEntryForm.label.trim()
+          s.value = value
+        }
+      } else {
+        mod.scores.push({ id: 'sc' + Date.now(), label: this.scoreEntryForm.label.trim(), value })
+      }
+      this.scoreEntryModalOpen = false
+    },
+
+    openExamDateModal() {
+      this.examDateForm = { title: '', date: '' }
+      this.examDateTouched = false
+      this.examDateModalOpen = true
+    },
+    closeExamDateModal() {
+      this.examDateModalOpen = false
+    },
+    saveExamDate() {
+      if (!this.examDateForm.title.trim() || !this.examDateForm.date) {
+        this.examDateTouched = true
+        return
+      }
+      const mod = this.activeCustomModule
+      if (!mod) return
+      mod.examDates.push({ id: 'ed' + Date.now(), title: this.examDateForm.title.trim(), date: this.examDateForm.date })
+      this.examDateModalOpen = false
+    },
+
+    openGoalScoreModal() {
+      const mod = this.activeCustomModule
+      this.goalScoreForm = {
+        lastLabel: mod?.lastLabel ?? '',
+        lastScore: mod?.lastScore ?? '',
+        targetLabel: mod?.targetLabel ?? '',
+        targetScore: mod?.targetScore ?? '',
+      }
+      this.goalScoreModalOpen = true
+    },
+    closeGoalScoreModal() {
+      this.goalScoreModalOpen = false
+    },
+    saveGoalScoreForm() {
+      const mod = this.activeCustomModule
+      if (!mod) return
+      mod.lastLabel = this.goalScoreForm.lastLabel
+      mod.lastScore = this.goalScoreForm.lastScore
+      mod.targetLabel = this.goalScoreForm.targetLabel
+      mod.targetScore = this.goalScoreForm.targetScore
+      this.goalScoreModalOpen = false
+    },
+    clearGoalScoreForm() {
+      const mod = this.activeCustomModule
+      if (mod) {
+        mod.lastLabel = ''
+        mod.lastScore = ''
+        mod.targetLabel = ''
+        mod.targetScore = ''
+      }
+      this.goalScoreModalOpen = false
+    },
+
+    openBoardModal(editId: string | null = null) {
+      const mod = this.activeCustomModule
+      const project = editId ? mod?.boardColumns.flatMap((c) => c.items).find((p) => p.id === editId) : null
+      this.boardEditId = editId
+      this.boardForm = {
+        name: project?.name ?? '',
+        desc: project?.caption ?? '',
+        start: '',
+        end: '',
+        daily: '0',
+        weekly: '0',
+        monthly: '0',
+        fileName: '',
+      }
+      this.boardTouched = false
+      this.boardModalOpen = true
+    },
+    closeBoardModal() {
+      this.boardModalOpen = false
+    },
+    saveBoardProjectForm() {
+      if (!this.boardForm.name.trim()) {
+        this.boardTouched = true
+        return
+      }
+      const mod = this.activeCustomModule
+      if (!mod || mod.boardColumns.length === 0) return
+      if (this.boardEditId) {
+        for (const col of mod.boardColumns) {
+          const p = col.items.find((x) => x.id === this.boardEditId)
+          if (p) {
+            p.name = this.boardForm.name.trim()
+            p.caption = this.boardForm.desc.trim()
+            break
+          }
+        }
+      } else {
+        mod.boardColumns[0].items.push({
+          id: 'bp' + Date.now(),
+          name: this.boardForm.name.trim(),
+          caption: this.boardForm.desc.trim(),
+        })
+      }
+      this.boardModalOpen = false
+    },
+
+    openTabItemModal() {
+      this.tabItemForm = { name: '', link: '' }
+      this.tabItemTouched = false
+      this.tabItemModalOpen = true
+    },
+    closeTabItemModal() {
+      this.tabItemModalOpen = false
+    },
+    saveTabItem() {
+      if (!this.tabItemForm.name.trim()) {
+        this.tabItemTouched = true
+        return
+      }
+      const mod = this.activeCustomModule
+      const cat = mod?.tabCats.find((c) => c.id === mod.activeTabCatId) ?? mod?.tabCats[0]
+      if (!cat) return
+      cat.items.push({ id: 'ti' + Date.now(), name: this.tabItemForm.name.trim(), done: false })
+      this.tabItemModalOpen = false
+    },
+
+    openCustomItemModal() {
+      this.customItemForm = { text: '' }
+      this.customItemTouched = false
+      this.customItemModalOpen = true
+    },
+    closeCustomItemModal() {
+      this.customItemModalOpen = false
+    },
+    saveCustomItem() {
+      if (!this.customItemForm.text.trim()) {
+        this.customItemTouched = true
+        return
+      }
+      const mod = this.activeCustomModule
+      if (!mod) return
+      mod.dailyTasks.push({ id: 'ci' + Date.now(), title: this.customItemForm.text.trim(), done: false })
+      this.customItemModalOpen = false
     },
   },
 })
