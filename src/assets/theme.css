@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+
+/*
+ * WeeklyMind design tokens.
+ * Every hex value below is copied verbatim from the original .dc.html mockups
+ * (AI 私人助理设计０７２９/*.dc.html). Do not "round" or substitute values here —
+ * see the hex → token mapping table delivered alongside this project for the
+ * full audit (source file, occurrence count, usage) behind each name.
+ */
+@theme {
+  /* Brand green / system green */
+  --color-brand-primary: #33513f;
+  --color-brand-primary-dark: #2c4a36;
+  --color-brand-secondary: #3e5a3e;
+  --color-brand-secondary-muted: #5a6357;
+  --color-line-brand: #06c755;
+  --color-line-brand-dark: #06834e;
+  --color-line-brand-bg: #e6f6ec;
+  --color-success-bg-soft: #eef3ea;
+  --color-accent-green-bright: #8de055;
+  --color-accent-green-dark: #20331a;
+  --color-sage-accent: #7da67d;
+  --color-sage-muted: #7c9473;
+  --color-success-solid: #16a34a;
+  --color-forest-alt: #4a6741;
+  --color-mint-pale: #c2eec0;
+  --color-sage-pale: #c2c8be;
+  --color-sage-pale-2: #dce7d6;
+
+  /* Ink (text) scale */
+  --color-ink-950: #1f1b16;
+  --color-ink-950-alt: #232323;
+  --color-ink-900: #3a2e1e;
+  --color-ink-800: #4a3b2b;
+  --color-ink-700: #5a4c3a;
+  --color-ink-600: #6b5d48;
+  --color-ink-amber: #614000;
+
+  /* Sand / tan neutrals */
+  --color-sand-600: #8a7c68;
+  --color-sand-500: #a99a7e;
+  --color-sand-450: #b9ac93;
+  --color-sand-400: #b3a38c;
+  --color-sand-300: #c9bea6;
+  --color-sand-300-alt: #c9bfa8;
+  --color-clay-400: #c9a876;
+  --color-clay-500: #b08968;
+  --color-clay-600: #8b6b3e;
+  --color-taupe: #9a8c86;
+  --color-stone-muted: #8a8f87;
+  --color-stone-400: #a8a29e;
+  --color-stone-500: #78716c;
+
+  /* Cream backgrounds */
+  --color-cream-50: #fffcf5;
+  --color-cream-55: #fbfbfa;
+  --color-cream-60: #fdf8f0;
+  --color-cream-75: #fbf6ee;
+  --color-cream-90: #fbf3e7;
+  --color-cream-100: #f0eada;
+  --color-cream-125: #f7f1e4;
+  --color-cream-150: #efe6d3;
+  --color-cream-160: #f3eee0;
+  --color-cream-165: #eee3d3;
+  --color-cream-175: #f5eedd;
+  --color-cream-180: #f5ece4;
+  --color-cream-185: #f5ede4;
+  --color-cream-190: #f1eeeb;
+  --color-mint-cream: #eaf1e7;
+
+  /* Sand borders / dividers */
+  --color-sand-200: #e4dac4;
+  --color-sand-225: #efe0c3;
+  --color-sand-230: #f0d9b8;
+  --color-sand-240: #e8dcc0;
+  --color-sand-250: #dcd1b9;
+  --color-sand-275: #d6cbaf;
+
+  /* LINE chat wallpaper (screen content background, not a device frame) */
+  --color-line-chat-bg: #8cabd9;
+
+  /* Danger / coral (kept distinct on purpose — different roles in source) */
+  --color-danger: #c0563a;
+  --color-coral: #d9736a;
+  --color-pink-accent: #c0567a;
+  --color-pink-bg-soft: #f5dce3;
+
+  /* Gold / warning */
+  --color-gold-accent: #ffb21d;
+  --color-status-inprogress: #e8a33d;
+  --color-amber-solid: #d97706;
+  --color-amber-dark: #b38b00;
+  --color-peach-soft: #ffddaf;
+  --color-amber-bg-soft: #fff7e6;
+
+  /* Blue */
+  --color-telegram-brand: #26a5e4;
+  --color-link-blue: #2f6bd8;
+  --color-blue-bg-soft: #eaf1ff;
+  --color-blue-bg-soft-2: #dce7f5;
+
+  /* Neutral gray (generic UI controls, not brand) */
+  --color-gray-950: #18181b;
+  --color-gray-500: #71717a;
+  --color-gray-500-alt: #6b7280;
+  --color-gray-400: #a1a1aa;
+  --color-gray-300: #d4d4d8;
+  --color-gray-300-alt: #d1d5db;
+  --color-gray-100: #f2f2f2;
+  --color-gray-100-alt: #f0f0f0;
+  --color-gray-350: #b9b9b9;
+
+  /* Teal (LINE notification dark theme only) */
+  --color-teal-brand: #0f766e;
+  --color-teal-dark: #0b3b38;
+  --color-teal-darker: #0f4d47;
+  --color-slate-dark: #14343f;
+
+  /* Radii */
+  --radius-control: 8px;
+  --radius-card: 12px;
+}
