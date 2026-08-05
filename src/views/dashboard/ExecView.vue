@@ -83,26 +83,32 @@ const stageBarOptions: ChartOptions<'bar'> = {
       <div class="grid grid-cols-7 gap-2">
         <div
           v-for="d in exec.weekDays"
-          :key="d.date"
-          class="flex flex-col items-center gap-4 rounded-2xl py-4.5 px-1.5 cursor-pointer"
-          :class="d.isToday ? 'bg-brand-primary shadow-md' : 'bg-cream-100'"
+          :key="d.index"
+          class="flex flex-col items-center gap-4 rounded-2xl py-4.5 px-1.5 cursor-pointer border-2"
+          :class="[
+            d.isToday ? 'bg-forest-alt border-transparent shadow-md' : 'bg-cream-185',
+            d.dashedBorder ? 'border-dashed border-sage-pale' : !d.isToday ? 'border-transparent' : '',
+          ]"
+          @click="exec.selectDay(d.index)"
         >
-          <span class="text-xs" :class="d.isToday ? 'text-white font-medium' : 'text-ink-700'">{{ d.label }}</span>
+          <span class="text-xs" :class="d.isToday ? 'text-mint-pale font-medium' : 'text-brand-secondary-muted'">{{ d.label }}</span>
           <div
             class="w-11 h-11 rounded-full flex items-center justify-center"
-            :class="d.isToday ? '' : d.done ? 'bg-success-bg-soft' : 'bg-cream-150'"
+            :class="[
+              d.isToday ? 'bg-transparent' : d.colorway === 'sage' ? 'bg-sage-accent' : d.colorway === 'peach' ? 'bg-peach-soft' : 'bg-transparent',
+            ]"
           >
             <Icon
-              :name="d.done ? 'checkCircle' : 'goal'"
-              :size="d.isToday ? 24 : 20"
-              :class="d.isToday ? 'text-white' : d.done ? 'text-brand-primary' : 'text-sand-400'"
+              :name="d.icon"
+              :size="d.icon === 'moon' || d.icon === 'leaf' ? 20 : 24"
+              :class="d.isToday ? 'text-white' : d.isRest ? 'text-stone-muted' : 'text-ink-950'"
             />
           </div>
         </div>
       </div>
 
       <div class="mt-4 bg-cream-90 rounded-card p-4">
-        <div class="text-sm font-medium text-ink-800 mb-3">任務清單（今天）</div>
+        <div class="text-sm font-medium text-ink-800 mb-3">任務清單（{{ exec.todayLabel }}）</div>
         <p v-if="exec.todayTasks.length === 0" class="m-0 text-xs text-sand-400">這天沒有排定的任務</p>
         <div v-else class="flex flex-col gap-2.5">
           <div
@@ -110,7 +116,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
             :key="t.id"
             class="flex items-center gap-2.5 text-sm cursor-pointer"
             :class="t.done ? 'text-sand-400' : 'text-ink-900'"
-            @click="exec.toggleTask(t.id)"
+            @click="exec.toggleTask(t.key)"
           >
             <span
               class="w-4.5 h-4.5 rounded-md shrink-0 flex items-center justify-center text-white text-xs font-medium"

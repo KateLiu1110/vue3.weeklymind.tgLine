@@ -1,12 +1,5 @@
 import { defineStore } from 'pinia'
 
-export interface WeekGoalItem {
-  id: string
-  title: string
-  daysLabel: string
-  pct: number
-}
-
 export interface Schedule {
   id: string
   day: string
@@ -42,16 +35,6 @@ export const useOverviewStore = defineStore('overview', {
     goalTitle: '我要去海外工作',
     editingGoal: false,
     goalDraft: '',
-    weekGoalPct: 62,
-    weekGoalLabel: '本週已完成 5 / 8 項打卡',
-    weekGoalItems: [
-      { id: 'w1', title: '多益備考衝刺', daysLabel: '週一至週五', pct: 62 },
-    ] as WeekGoalItem[],
-    monthGoalPct: 48,
-    monthGoalLabel: '本月已完成 12 / 25 項打卡',
-    monthGoalItems: [
-      { id: 'm1', title: '作品集網站上線', daysLabel: '7 月目標', pct: 48 },
-    ] as WeekGoalItem[],
     calendarMonthOffset: 0,
     schedules: [
       { id: 'sc1', day: '15', title: '多益公開測驗報名截止', reminded: false },

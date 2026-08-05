@@ -1,17 +1,6 @@
 import { defineStore } from 'pinia'
-
-export interface DayCell {
-  label: string
-  date: string
-  done: boolean
-  isToday: boolean
-}
-
-export interface TodayTask {
-  id: string
-  title: string
-  done: boolean
-}
+import dayjs from 'dayjs'
+import { useCoreStore, type Plan } from './core'
 
 export interface RadarSkill {
   label: string
@@ -32,39 +21,31 @@ export interface CategoryProgress {
   auto: boolean
 }
 
+const DAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
+const MATERIAL_ICONS = ['navPerson', 'gym', 'moon', 'navPerson', 'gym', 'leaf', 'mapPin']
+// 'sage' | 'peach' | 'none' — semantic colorway per weekday, mapped to literal
+// Tailwind classes in the view (kept out of here so the JIT scanner can see them).
+const DAY_COLORWAY = ['sage', 'peach', 'none', 'sage', 'peach', 'none', 'sage'] as const
+const REST_DAYS = new Set([2, 5])
+
+/** Monday-first weekday index (0=Mon…6=Sun) for a dayjs date, whose native .day() is Sun-first. */
+function mondayIndex(d: dayjs.Dayjs): number {
+  const dow = d.day()
+  return dow === 0 ? 6 : dow - 1
+}
+
 export const useExecStore = defineStore('exec', {
   state: () => ({
-    weekNumber: 3,
-    weekDays: [
-      { label: '一', date: '7/6', done: true, isToday: false },
-      { label: '二', date: '7/7', done: true, isToday: false },
-      { label: '三', date: '7/8', done: false, isToday: true },
-      { label: '四', date: '7/9', done: false, isToday: false },
-      { label: '五', date: '7/10', done: false, isToday: false },
-      { label: '六', date: '7/11', done: false, isToday: false },
-      { label: '日', date: '7/12', done: false, isToday: false },
-    ] as DayCell[],
-    todayTasks: [
-      { id: 't1', title: '間歇跑訓練 5km', done: false },
-      { id: 't2', title: '《原子習慣》閱讀 30 頁', done: false },
-      { id: 't3', title: '背 20 個多益單字', done: true },
-    ] as TodayTask[],
+    weekNumber: 12,
+    selectedDayIndex: null as number | null,
+    taskDoneMap: {} as Record<string, boolean>,
+
     radarSkills: [
       { label: '運動', value: 78 },
       { label: '英文', value: 62 },
       { label: '作品集', value: 45 },
       { label: '生活', value: 55 },
     ] as RadarSkill[],
-    stageBars: [
-      { label: '一', h: 40, active: true },
-      { label: '二', h: 60, active: true },
-      { label: '三', h: 30, active: false },
-      { label: '四', h: 0, active: false },
-      { label: '五', h: 0, active: false },
-      { label: '六', h: 0, active: false },
-      { label: '日', h: 0, active: false },
-    ] as StageBar[],
-    scheduledCount: 9,
     checkedGoalsCount: 5,
     catProgress: [
       { id: 'c1', name: '運動', value: 70, color: '#33513f', auto: true },
@@ -79,10 +60,86 @@ export const useExecStore = defineStore('exec', {
 
     monthlyReportOpen: false,
   }),
+  getters: {
+    todayColIndex(): number {
+      return mondayIndex(dayjs())
+    },
+    selectedDay(): number {
+      return this.selectedDayIndex ?? this.todayColIndex
+    },
+    todayLabel(): string {
+      return DAY_LABELS[this.selectedDay]
+    },
+    execPlans(): Plan[] {
+      const core = useCoreStore()
+      return core.plans.filter((p) => (p.weekdays && p.weekdays.length > 0) || p.module === 'exec')
+    },
+    weekDays(): {
+      index: number
+      label: string
+      date: string
+      icon: string
+      isToday: boolean
+      isRest: boolean
+      isSelected: boolean
+      colorway: (typeof DAY_COLORWAY)[number]
+      dashedBorder: boolean
+    }[] {
+      const now = dayjs()
+      const monday = now.subtract(this.todayColIndex, 'day')
+      return DAY_LABELS.map((label, i) => {
+        const d = monday.add(i, 'day')
+        const isToday = d.isSame(now, 'day')
+        const isRest = REST_DAYS.has(i)
+        return {
+          index: i,
+          label,
+          date: d.format('M/D'),
+          icon: MATERIAL_ICONS[i],
+          isToday,
+          isRest,
+          isSelected: this.selectedDay === i,
+          colorway: DAY_COLORWAY[i],
+          dashedBorder: !isToday && isRest,
+        }
+      })
+    },
+    todayTasks(): { id: string; title: string; done: boolean; key: string }[] {
+      const selDay = this.selectedDay
+      return this.execPlans
+        .filter((p) => (p.weekdays || []).includes(selDay))
+        .map((p) => {
+          const key = selDay + '_' + p.id
+          return { id: p.id, title: p.title, done: !!this.taskDoneMap[key], key }
+        })
+    },
+    scheduleCountByDay(): number[] {
+      const counts = [0, 0, 0, 0, 0, 0, 0]
+      for (const p of this.execPlans) {
+        for (const d of p.weekdays || []) counts[d] = (counts[d] || 0) + 1
+      }
+      return counts
+    },
+    scheduledCount(): number {
+      return this.scheduleCountByDay.reduce((a, b) => a + b, 0)
+    },
+    stageBars(): StageBar[] {
+      const counts = this.scheduleCountByDay
+      const max = Math.max(1, ...counts)
+      const todayIdx = this.todayColIndex
+      return DAY_LABELS.map((label, i) => ({
+        label,
+        h: counts[i] ? Math.round(24 + (counts[i] / max) * 62) : 12,
+        active: i === todayIdx || counts[i] > 0,
+      }))
+    },
+  },
   actions: {
-    toggleTask(id: string) {
-      const t = this.todayTasks.find((x) => x.id === id)
-      if (t) t.done = !t.done
+    selectDay(i: number) {
+      this.selectedDayIndex = i
+    },
+    toggleTask(key: string) {
+      this.taskDoneMap[key] = !this.taskDoneMap[key]
     },
     removeCategory(id: string) {
       this.catProgress = this.catProgress.filter((c) => c.id !== id)

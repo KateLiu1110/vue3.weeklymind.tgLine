@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import dayjs from 'dayjs'
-import { useCoreStore, MODULE_OPTIONS } from '@/stores/core'
+import { useCoreStore, MODULE_OPTIONS, PLAN_TEMPLATE_CARDS } from '@/stores/core'
 import { useOverviewStore } from '@/stores/overview'
 import Icon from '@/components/common/Icon.vue'
 import Modal from '@/components/common/Modal.vue'
@@ -46,6 +46,26 @@ const plansPieArcs = computed(() => {
   })
 })
 const plansPieLegend = computed(() => core.plans.slice(0, 4).map((p) => ({ name: p.title, color: p.color })))
+
+function planDaysLabel(p: { targetDate?: string }): string {
+  return p.targetDate ? `至 ${dayjs(p.targetDate).format('M/D')}` : '無期限'
+}
+
+const weekGoalPct = computed(() =>
+  core.plans.length ? Math.round(core.plans.reduce((sum, p) => sum + p.pct, 0) / core.plans.length) : 0,
+)
+const weekGoalLabel = computed(() => `${core.plans.length} 項計畫平均進度`)
+const weekTopPlan = computed(() =>
+  core.plans.length ? [...core.plans].sort((a, b) => b.pct - a.pct)[0] : null,
+)
+
+const monthGoalPct = computed(() =>
+  core.milestones.length ? Math.round(core.milestones.reduce((sum, m) => sum + m.progress, 0) / core.milestones.length) : 0,
+)
+const monthGoalLabel = computed(() => `${core.milestones.length} 項里程碑平均進度`)
+const monthTopMilestone = computed(() =>
+  core.milestones.length ? [...core.milestones].sort((a, b) => b.progress - a.progress)[0] : null,
+)
 </script>
 
 <template>
@@ -130,17 +150,17 @@ const plansPieLegend = computed(() => core.plans.slice(0, 4).map((p) => ({ name:
       <div class="flex-1 bg-cream-100 rounded-card p-4 min-w-[220px]">
         <div class="flex justify-between items-center">
           <span class="flex items-center gap-1.5 text-xs font-medium text-ink-800"><Icon name="calendar" :size="12" />週目標</span>
-          <span class="text-xs font-medium text-clay-500">{{ ov.weekGoalPct }}%</span>
+          <span class="text-xs font-medium text-clay-500">{{ weekGoalPct }}%</span>
         </div>
-        <p class="my-1.5 text-xs text-sand-600">{{ ov.weekGoalLabel }}</p>
+        <p class="my-1.5 text-xs text-sand-600">{{ weekGoalLabel }}</p>
         <div class="h-1.5 rounded-full bg-white overflow-hidden mb-2.5">
-          <div class="h-full bg-clay-400" :style="{ width: ov.weekGoalPct + '%' }" />
+          <div class="h-full bg-clay-400" :style="{ width: weekGoalPct + '%' }" />
         </div>
-        <div class="flex flex-col gap-2">
-          <div v-for="wi in ov.weekGoalItems" :key="wi.id">
-            <div class="text-xs font-medium text-ink-900 whitespace-nowrap overflow-hidden text-ellipsis">{{ wi.title }}</div>
-            <div class="flex justify-between text-xs text-clay-500 mt-0.5"><span>{{ wi.daysLabel }}</span><span>{{ wi.pct }}%</span></div>
-            <div class="h-1 rounded-full bg-white mt-1 overflow-hidden"><div class="h-full bg-clay-400" :style="{ width: wi.pct + '%' }" /></div>
+        <div v-if="weekTopPlan" class="flex flex-col gap-2">
+          <div>
+            <div class="text-xs font-medium text-ink-900 whitespace-nowrap overflow-hidden text-ellipsis">{{ weekTopPlan.title }}</div>
+            <div class="flex justify-between text-xs text-clay-500 mt-0.5"><span>{{ planDaysLabel(weekTopPlan) }}</span><span>{{ weekTopPlan.pct }}%</span></div>
+            <div class="h-1 rounded-full bg-white mt-1 overflow-hidden"><div class="h-full bg-clay-400" :style="{ width: weekTopPlan.pct + '%' }" /></div>
           </div>
         </div>
         <span class="inline-block mt-2 text-xs font-medium text-clay-500 cursor-pointer" @click="ov.openWeekGoalDetail()">更多 →</span>
@@ -149,17 +169,17 @@ const plansPieLegend = computed(() => core.plans.slice(0, 4).map((p) => ({ name:
       <div class="flex-1 bg-mint-cream rounded-card p-4 min-w-[220px]">
         <div class="flex justify-between items-center">
           <span class="flex items-center gap-1.5 text-xs font-medium text-ink-800"><Icon name="calendar" :size="12" />月目標</span>
-          <span class="text-xs font-medium text-brand-primary">{{ ov.monthGoalPct }}%</span>
+          <span class="text-xs font-medium text-brand-primary">{{ monthGoalPct }}%</span>
         </div>
-        <p class="my-1.5 text-xs text-sand-600">{{ ov.monthGoalLabel }}</p>
+        <p class="my-1.5 text-xs text-sand-600">{{ monthGoalLabel }}</p>
         <div class="h-1.5 rounded-full bg-white overflow-hidden mb-2.5">
-          <div class="h-full bg-brand-primary" :style="{ width: ov.monthGoalPct + '%' }" />
+          <div class="h-full bg-brand-primary" :style="{ width: monthGoalPct + '%' }" />
         </div>
-        <div class="flex flex-col gap-2">
-          <div v-for="mi in ov.monthGoalItems" :key="mi.id">
-            <div class="text-xs font-medium text-ink-900 whitespace-nowrap overflow-hidden text-ellipsis">{{ mi.title }}</div>
-            <div class="flex justify-between text-xs text-brand-primary mt-0.5"><span>{{ mi.daysLabel }}</span><span>{{ mi.pct }}%</span></div>
-            <div class="h-1 rounded-full bg-white mt-1 overflow-hidden"><div class="h-full bg-brand-primary" :style="{ width: mi.pct + '%' }" /></div>
+        <div v-if="monthTopMilestone" class="flex flex-col gap-2">
+          <div>
+            <div class="text-xs font-medium text-ink-900 whitespace-nowrap overflow-hidden text-ellipsis">{{ monthTopMilestone.title }}</div>
+            <div class="flex justify-between text-xs text-brand-primary mt-0.5"><span>{{ monthTopMilestone.tag }}</span><span>{{ monthTopMilestone.progress }}%</span></div>
+            <div class="h-1 rounded-full bg-white mt-1 overflow-hidden"><div class="h-full bg-brand-primary" :style="{ width: monthTopMilestone.progress + '%' }" /></div>
           </div>
         </div>
         <span class="inline-block mt-2 text-xs font-medium text-brand-primary cursor-pointer" @click="ov.openMonthGoalDetail()">更多 →</span>
@@ -468,11 +488,26 @@ const plansPieLegend = computed(() => core.plans.slice(0, 4).map((p) => ({ name:
       />
       <label class="text-xs font-medium text-ink-700">副標</label>
       <input v-model="core.planForm.sub" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-      <label class="text-xs font-medium text-ink-700">所屬模組</label>
-      <select v-model="core.planForm.module" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none">
-        <option value="">請選擇所屬模組</option>
-        <option v-for="opt in MODULE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-      </select>
+      <label class="text-xs font-medium text-ink-700">計畫範本</label>
+      <div class="flex flex-col gap-2 mt-1.5 mb-3.5">
+        <div
+          v-for="tpl in PLAN_TEMPLATE_CARDS"
+          :key="tpl.kind"
+          class="flex items-center gap-2.5 px-3.5 py-3 rounded-control cursor-pointer border-[1.5px]"
+          :class="core.planForm.template === tpl.kind ? 'bg-success-bg-soft border-brand-primary' : 'bg-cream-75 border-cream-150'"
+          @click="core.selectPlanTemplate(tpl.kind)"
+        >
+          <Icon :name="tpl.icon" :size="20" :class="core.planForm.template === tpl.kind ? 'text-brand-primary' : 'text-sand-400'" />
+          <div class="flex-1">
+            <div class="text-sm font-medium text-ink-900">{{ tpl.label }}</div>
+            <div class="text-xs text-sand-500 mt-0.5">{{ tpl.desc }}</div>
+          </div>
+          <span
+            class="w-4.5 h-4.5 rounded-full border-2 shrink-0"
+            :class="core.planForm.template === tpl.kind ? 'border-brand-primary bg-brand-primary' : 'border-sand-275 bg-transparent'"
+          />
+        </div>
+      </div>
       <label class="text-xs font-medium text-ink-700">執行星期（可複選）</label>
       <div class="flex gap-1.5 mt-1.5 mb-3.5">
         <span
@@ -606,22 +641,22 @@ const plansPieLegend = computed(() => core.plans.slice(0, 4).map((p) => ({ name:
       @close="ov.closeGoalDetailModal()"
     >
       <div v-if="ov.goalDetailScope === 'week'">
-        <div class="text-xs font-medium text-clay-500 mb-2.5">週目標（{{ ov.weekGoalPct }}%）</div>
+        <div class="text-xs font-medium text-clay-500 mb-2.5">週目標（{{ weekGoalPct }}%）</div>
         <div class="flex flex-col gap-2.5">
-          <div v-for="wi in ov.weekGoalItems" :key="wi.id" class="rounded-card p-3.5 bg-cream-100">
-            <div class="text-sm font-medium text-ink-900">{{ wi.title }}</div>
-            <div class="flex justify-between text-xs text-clay-500 mt-1"><span>{{ wi.daysLabel }}</span><span>{{ wi.pct }}%</span></div>
-            <div class="h-1.5 rounded-full bg-cream-150 mt-1 overflow-hidden"><div class="h-full bg-clay-400" :style="{ width: wi.pct + '%' }" /></div>
+          <div v-for="p in core.plans" :key="p.id" class="rounded-card p-3.5 bg-cream-100">
+            <div class="text-sm font-medium text-ink-900">{{ p.title }}</div>
+            <div class="flex justify-between text-xs text-clay-500 mt-1"><span>{{ planDaysLabel(p) }}</span><span>{{ p.pct }}%</span></div>
+            <div class="h-1.5 rounded-full bg-cream-150 mt-1 overflow-hidden"><div class="h-full bg-clay-400" :style="{ width: p.pct + '%' }" /></div>
           </div>
         </div>
       </div>
       <div v-else>
-        <div class="text-xs font-medium text-brand-primary mb-2.5">月目標（{{ ov.monthGoalPct }}%）</div>
+        <div class="text-xs font-medium text-brand-primary mb-2.5">月目標（{{ monthGoalPct }}%）</div>
         <div class="flex flex-col gap-2.5">
-          <div v-for="mi in ov.monthGoalItems" :key="mi.id" class="rounded-card p-3.5 bg-cream-100">
-            <div class="text-sm font-medium text-ink-900">{{ mi.title }}</div>
-            <div class="flex justify-between text-xs text-brand-primary mt-1"><span>{{ mi.daysLabel }}</span><span>{{ mi.pct }}%</span></div>
-            <div class="h-1.5 rounded-full bg-cream-150 mt-1 overflow-hidden"><div class="h-full bg-brand-primary" :style="{ width: mi.pct + '%' }" /></div>
+          <div v-for="m in core.milestones" :key="m.id" class="rounded-card p-3.5 bg-cream-100">
+            <div class="text-sm font-medium text-ink-900">{{ m.title }}</div>
+            <div class="flex justify-between text-xs text-brand-primary mt-1"><span>{{ m.tag }}</span><span>{{ m.progress }}%</span></div>
+            <div class="h-1.5 rounded-full bg-cream-150 mt-1 overflow-hidden"><div class="h-full bg-brand-primary" :style="{ width: m.progress + '%' }" /></div>
           </div>
         </div>
       </div>

@@ -29,6 +29,7 @@ export interface Plan {
   startDate?: string
   targetDate?: string
   linkedGoalId?: string | null
+  linkedCustomId?: string | null
 }
 
 export interface CustomModuleDailyTask {
@@ -109,6 +110,12 @@ const TEMPLATE_LABEL: Record<CustomModuleKind, string> = {
   tab: 'Tab 模板',
 }
 
+export const PLAN_TEMPLATE_CARDS: { kind: CustomModuleKind; icon: string; label: string; desc: string }[] = [
+  { kind: 'goal', icon: 'templateGoal', label: '目標模板', desc: '如：多益 — 追蹤朝單一分數/目標的進度' },
+  { kind: 'board', icon: 'templateBoard', label: '看板模板', desc: '如：作品集 — 看板式追蹤多個項目進度' },
+  { kind: 'tab', icon: 'templateTab', label: 'Tab模板', desc: '如：運動 — 分類分頁 + 清單打卡' },
+]
+
 function createBlankCustomModule(kind: CustomModuleKind, title: string): CustomModule {
   return {
     id: 'cm' + Date.now() + Math.random().toString(16).slice(2),
@@ -148,7 +155,7 @@ const SEED_PLANS: Plan[] = [
     sub: '賽事報名完成',
     pct: 0,
     checkinsDone: 1,
-    color: '#33513f',
+    color: '#ffb21d',
     module: 'sport',
     weekdays: [],
     startTime: '',
@@ -188,7 +195,7 @@ const SEED_PLANS: Plan[] = [
     sub: '週六整理進度',
     pct: 55,
     checkinsDone: 1,
-    color: '#33513f',
+    color: '#b08968',
     module: 'portfolio',
     weekdays: [5],
     startTime: '',
@@ -223,7 +230,7 @@ const SEED_MILESTONES: Milestone[] = [
   },
 ]
 
-const PLAN_COLOR_PALETTE = ['#33513f', '#c9a876', '#2f6bd8', '#b08968']
+const PLAN_COLOR_PALETTE = ['#ffb21d', '#c9a876', '#2f6bd8', '#b08968']
 
 export const MODULE_OPTIONS = [
   { value: 'overview', label: '計劃管理' },
@@ -256,7 +263,15 @@ export const useCoreStore = defineStore('core', {
 
     planModalOpen: false,
     allPlansModalOpen: false,
-    planForm: { title: '', sub: '', module: '', weekdays: [] as number[], startTime: '', endTime: '', months: '1' },
+    planForm: {
+      title: '',
+      sub: '',
+      template: 'goal' as CustomModuleKind,
+      weekdays: [] as number[],
+      startTime: '',
+      endTime: '',
+      months: '1',
+    },
     planTouched: false,
 
     milestoneModalOpen: false,
@@ -354,12 +369,15 @@ export const useCoreStore = defineStore('core', {
     },
 
     openPlanModal() {
-      this.planForm = { title: '', sub: '', module: '', weekdays: [], startTime: '', endTime: '', months: '1' }
+      this.planForm = { title: '', sub: '', template: 'goal', weekdays: [], startTime: '', endTime: '', months: '1' }
       this.planTouched = false
       this.planModalOpen = true
     },
     closePlanModal() {
       this.planModalOpen = false
+    },
+    selectPlanTemplate(kind: CustomModuleKind) {
+      this.planForm.template = kind
     },
     openAllPlans() {
       this.allPlansModalOpen = true
@@ -377,18 +395,25 @@ export const useCoreStore = defineStore('core', {
         this.planTouched = true
         return
       }
+      const title = this.planForm.title.trim()
       const color = PLAN_COLOR_PALETTE[this.plans.length % PLAN_COLOR_PALETTE.length]
+      // A plan always drives a matching custom-module page (的 目標/看板/Tab 模板),
+      // mirroring how the design source's plan-template picker unlocks a page.
+      const mod = createBlankCustomModule(this.planForm.template, title)
+      if (mod.kind === 'goal') mod.heroTitle = title
+      this.customModules.push(mod)
       this.plans.push({
         id: 'pl' + Date.now(),
-        title: this.planForm.title.trim(),
+        title,
         sub: this.planForm.sub.trim(),
         pct: 0,
         checkinsDone: 0,
         color,
-        module: this.planForm.module || 'overview',
+        module: 'exec',
         weekdays: [...this.planForm.weekdays],
         startTime: this.planForm.startTime,
         endTime: this.planForm.endTime,
+        linkedCustomId: mod.id,
       })
       this.planModalOpen = false
     },

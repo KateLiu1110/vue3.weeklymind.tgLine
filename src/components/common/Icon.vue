@@ -47,6 +47,16 @@ const ICON_MARKUP: Record<string, string> = {
   navHelp: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   navLogout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   chevronsLeft: '<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>',
+
+  // 訓練計畫 weekday-type icons (material-symbols equivalents, redrawn as line icons)
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>',
+  leaf: '<path d="M11 20A7 7 0 0 1 4 13c0-4 3-8 8-11 5 3 8 7 8 11a7 7 0 0 1-7 7c-.5 0-1-.05-1.5-.14"/><path d="M4 13c3 0 6-1 8-3"/>',
+  mapPin: '<path d="M12 21s-7-5.686-7-11a7 7 0 0 1 14 0c0 5.314-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+
+  // 新增計畫 Modal — 計畫範本卡片圖示 (exact paths from the design source)
+  templateGoal: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
+  templateBoard: '<rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="14" y="3" width="7" height="10" rx="1.5"/>',
+  templateTab: '<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M3 7l2-4h14l2 4"/><line x1="3" y1="12" x2="21" y2="12"/>',
 }
 
 withDefaults(defineProps<{ name: string; size?: number }>(), { size: 16 })

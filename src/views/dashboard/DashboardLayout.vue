@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { useCoreStore, type CustomModuleKind } from '@/stores/core'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { useCoreStore } from '@/stores/core'
 import Modal from '@/components/common/Modal.vue'
 import Icon from '@/components/common/Icon.vue'
 
 const core = useCoreStore()
-const router = useRouter()
 const route = useRoute()
 
 const navItems = [
@@ -43,19 +42,6 @@ const pageTitle = computed(() => PAGE_TITLES[route.name as string] ?? 'WeeklyMin
 
 const sidebarCollapsed = ref(false)
 const notifOpen = ref(false)
-
-const addMenuOpen = ref(false)
-const TEMPLATE_OPTIONS: { kind: CustomModuleKind; label: string; defaultTitle: string }[] = [
-  { kind: 'goal', label: '新增目標模板', defaultTitle: '新目標' },
-  { kind: 'board', label: '新增看板模板', defaultTitle: '新看板' },
-  { kind: 'tab', label: '新增 Tab 模板', defaultTitle: '新分類清單' },
-]
-
-function addModule(kind: CustomModuleKind, defaultTitle: string) {
-  const mod = core.createCustomModule(kind, defaultTitle)
-  addMenuOpen.value = false
-  router.push({ name: 'custom', params: { id: mod.id } })
-}
 </script>
 
 <template>
@@ -115,28 +101,6 @@ function addModule(kind: CustomModuleKind, defaultTitle: string) {
       >
         {{ mod.title }}
       </RouterLink>
-      <div class="relative px-1">
-        <button
-          type="button"
-          class="w-full flex items-center gap-2.5 px-2 py-2 rounded-[11px] text-sm font-medium text-brand-primary cursor-pointer"
-          :class="sidebarCollapsed ? 'justify-center' : ''"
-          @click="addMenuOpen = !addMenuOpen"
-        >
-          <span class="text-base leading-none">＋</span>
-          <span v-if="!sidebarCollapsed" class="whitespace-nowrap">新增模組</span>
-        </button>
-        <div v-if="addMenuOpen" class="absolute left-1 top-full mt-1 w-48 bg-cream-50 border border-cream-150 rounded-card shadow-lg z-10 p-1.5">
-          <button
-            v-for="opt in TEMPLATE_OPTIONS"
-            :key="opt.kind"
-            type="button"
-            class="w-full text-left px-2.5 py-2 rounded-control text-xs font-medium text-ink-700 cursor-pointer hover:bg-cream-100"
-            @click="addModule(opt.kind, opt.defaultTitle)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-      </div>
       <button
         type="button"
         class="flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] text-sm font-medium text-brand-primary cursor-pointer"
