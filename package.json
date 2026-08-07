@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "npm --prefix server run dev",
+    "dev:full": "run-p dev dev:server",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "test:unit": "vitest",
@@ -19,9 +21,10 @@
   "dependencies": {
     "@line/bot-sdk": "^11.2.0",
     "@tailwindcss/vite": "^4.3.2",
+    "@tanstack/vue-query": "^5.62.11",
+    "axios": "^1.7.9",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.21",
-    "express": "^5.2.1",
     "pinia": "^3.0.4",
     "vee-validate": "^4.15.1",
     "vue": "^3.5.38",

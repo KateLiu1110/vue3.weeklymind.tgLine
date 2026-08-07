@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia'
+import { createPlan, deletePlan } from '@/api/client/plans'
+import { createMilestone } from '@/api/client/milestones'
 
 export type BotPlatform = 'line' | 'telegram'
 export type BotLang = 'zh' | 'en'
@@ -26,9 +28,8 @@ export interface Plan {
   weekdays: number[]
   startTime: string
   endTime: string
-  startDate?: string
-  targetDate?: string
-  linkedGoalId?: string | null
+  startDate?: string | null
+  targetDate?: string | null
   linkedCustomId?: string | null
 }
 
@@ -148,88 +149,6 @@ function createBlankCustomModule(kind: CustomModuleKind, title: string): CustomM
   }
 }
 
-const SEED_PLANS: Plan[] = [
-  {
-    id: 'plm1',
-    title: '鐵人三項報名',
-    sub: '賽事報名完成',
-    pct: 0,
-    checkinsDone: 1,
-    color: '#ffb21d',
-    module: 'sport',
-    weekdays: [],
-    startTime: '',
-    endTime: '',
-  },
-  {
-    id: 'pl1',
-    title: '多益備考衝刺',
-    sub: '週一至週五 07:00–08:00',
-    pct: 62,
-    checkinsDone: 5,
-    color: '#c9a876',
-    module: 'toeic',
-    weekdays: [0, 1, 2, 3, 4],
-    startTime: '07:00',
-    endTime: '08:00',
-    startDate: '2026-07-01',
-    targetDate: '2026-10-01',
-  },
-  {
-    id: 'pl2',
-    title: '重訓計畫',
-    sub: '週一、三、五 19:00–20:00',
-    pct: 40,
-    checkinsDone: 3,
-    color: '#2f6bd8',
-    module: 'sport',
-    weekdays: [0, 2, 4],
-    startTime: '19:00',
-    endTime: '20:00',
-    startDate: '2026-07-01',
-    targetDate: '2026-09-01',
-  },
-  {
-    id: 'pl3',
-    title: '作品集網站上線',
-    sub: '週六整理進度',
-    pct: 55,
-    checkinsDone: 1,
-    color: '#b08968',
-    module: 'portfolio',
-    weekdays: [5],
-    startTime: '',
-    endTime: '',
-    startDate: '2026-07-01',
-    targetDate: '2026-09-15',
-  },
-]
-
-const SEED_MILESTONES: Milestone[] = [
-  {
-    id: 'ms1',
-    title: '多益 600 分',
-    tag: '重點',
-    tagBg: '#f0eada',
-    tagCol: '#b08968',
-    desc: '單字量500達成，克漏字&閱讀測驗持續累積',
-    progress: 58,
-    color: '#c9a876',
-    module: 'toeic',
-  },
-  {
-    id: 'ms2',
-    title: '作品集初版',
-    tag: '進行中',
-    tagBg: '#eef3ea',
-    tagCol: '#33513f',
-    desc: '完成 3 個頁面，尚有台鐵、訂便當專案待開發',
-    progress: 42,
-    color: '#33513f',
-    module: 'portfolio',
-  },
-]
-
 const PLAN_COLOR_PALETTE = ['#ffb21d', '#c9a876', '#2f6bd8', '#b08968']
 
 export const MODULE_OPTIONS = [
@@ -249,8 +168,13 @@ export const useCoreStore = defineStore('core', {
     demoEmpty: false,
     botPlatform: 'line' as BotPlatform,
     botLang: 'zh' as BotLang,
-    plans: [...SEED_PLANS] as Plan[],
-    milestones: [...SEED_MILESTONES] as Milestone[],
+    // Server-backed: hydrated from the API by DashboardLayout on mount (see hydratePlans/
+    // hydrateMilestones). serverPlans/serverMilestones keep the real fetched list around so
+    // toggleDemoEmpty can restore it without refetching.
+    plans: [] as Plan[],
+    milestones: [] as Milestone[],
+    serverPlans: [] as Plan[],
+    serverMilestones: [] as Milestone[],
     customModules: [] as CustomModule[],
     activeCustomId: null as string | null,
     streakDays: 14,
@@ -273,10 +197,14 @@ export const useCoreStore = defineStore('core', {
       months: '1',
     },
     planTouched: false,
+    planSaving: false,
+    planError: '',
 
     milestoneModalOpen: false,
     milestoneForm: { title: '', desc: '', module: '', tag: '重點', progress: '0' },
     milestoneTouched: false,
+    milestoneSaving: false,
+    milestoneError: '',
 
     dailyTaskModalOpen: false,
     dailyTaskEditId: null as string | null,
@@ -335,9 +263,17 @@ export const useCoreStore = defineStore('core', {
         this.plans = []
         this.milestones = []
       } else {
-        this.plans = [...SEED_PLANS]
-        this.milestones = [...SEED_MILESTONES]
+        this.plans = [...this.serverPlans]
+        this.milestones = [...this.serverMilestones]
       }
+    },
+    hydratePlans(plans: Plan[]) {
+      this.serverPlans = plans
+      if (!this.demoEmpty) this.plans = plans
+    },
+    hydrateMilestones(milestones: Milestone[]) {
+      this.serverMilestones = milestones
+      if (!this.demoEmpty) this.milestones = milestones
     },
     setBotPlatform(platform: BotPlatform) {
       this.botPlatform = platform
@@ -348,17 +284,10 @@ export const useCoreStore = defineStore('core', {
     setCustomTab(id: string) {
       this.activeCustomId = id
     },
-    addPlan(plan: Plan) {
-      this.plans.push(plan)
-    },
-    removePlan(id: string) {
+    async removePlan(id: string) {
       this.plans = this.plans.filter((p) => p.id !== id)
-    },
-    addMilestone(milestone: Milestone) {
-      this.milestones.push(milestone)
-    },
-    removeMilestone(id: string) {
-      this.milestones = this.milestones.filter((m) => m.id !== id)
+      this.serverPlans = this.serverPlans.filter((p) => p.id !== id)
+      await deletePlan(id)
     },
 
     openHelpModal() {
@@ -371,6 +300,7 @@ export const useCoreStore = defineStore('core', {
     openPlanModal() {
       this.planForm = { title: '', sub: '', template: 'goal', weekdays: [], startTime: '', endTime: '', months: '1' }
       this.planTouched = false
+      this.planError = ''
       this.planModalOpen = true
     },
     closePlanModal() {
@@ -390,60 +320,83 @@ export const useCoreStore = defineStore('core', {
       if (idx >= 0) this.planForm.weekdays.splice(idx, 1)
       else this.planForm.weekdays.push(day)
     },
-    savePlan() {
+    async savePlan() {
       if (!this.planForm.title.trim()) {
         this.planTouched = true
         return
       }
       const title = this.planForm.title.trim()
-      const color = PLAN_COLOR_PALETTE[this.plans.length % PLAN_COLOR_PALETTE.length]
+      const color = PLAN_COLOR_PALETTE[this.serverPlans.length % PLAN_COLOR_PALETTE.length]
       // A plan always drives a matching custom-module page (的 目標/看板/Tab 模板),
       // mirroring how the design source's plan-template picker unlocks a page.
       const mod = createBlankCustomModule(this.planForm.template, title)
       if (mod.kind === 'goal') mod.heroTitle = title
       this.customModules.push(mod)
-      this.plans.push({
-        id: 'pl' + Date.now(),
-        title,
-        sub: this.planForm.sub.trim(),
-        pct: 0,
-        checkinsDone: 0,
-        color,
-        module: 'exec',
-        weekdays: [...this.planForm.weekdays],
-        startTime: this.planForm.startTime,
-        endTime: this.planForm.endTime,
-        linkedCustomId: mod.id,
-      })
-      this.planModalOpen = false
+      this.activeCustomId = mod.id
+      this.planSaving = true
+      this.planError = ''
+      try {
+        const plan = await createPlan({
+          title,
+          sub: this.planForm.sub.trim(),
+          pct: 0,
+          checkinsDone: 0,
+          color,
+          module: 'exec',
+          weekdays: [...this.planForm.weekdays],
+          startTime: this.planForm.startTime,
+          endTime: this.planForm.endTime,
+          linkedCustomId: mod.id,
+        })
+        this.serverPlans.push(plan)
+        if (!this.demoEmpty) this.plans.push(plan)
+        this.planModalOpen = false
+      } catch {
+        // Roll back the local module so a failed save doesn't leave an orphaned
+        // sidebar entry with no plan behind it.
+        this.customModules = this.customModules.filter((m) => m.id !== mod.id)
+        this.planError = '新增失敗，請確認後端伺服器（server/）是否已啟動'
+      } finally {
+        this.planSaving = false
+      }
     },
 
     openMilestoneModal() {
       this.milestoneForm = { title: '', desc: '', module: '', tag: '重點', progress: '0' }
       this.milestoneTouched = false
+      this.milestoneError = ''
       this.milestoneModalOpen = true
     },
     closeMilestoneModal() {
       this.milestoneModalOpen = false
     },
-    saveMilestone() {
+    async saveMilestone() {
       if (!this.milestoneForm.title.trim()) {
         this.milestoneTouched = true
         return
       }
-      const color = PLAN_COLOR_PALETTE[this.milestones.length % PLAN_COLOR_PALETTE.length]
-      this.milestones.push({
-        id: 'ms' + Date.now(),
-        title: this.milestoneForm.title.trim(),
-        tag: this.milestoneForm.tag,
-        tagBg: '#f0eada',
-        tagCol: color,
-        desc: this.milestoneForm.desc.trim(),
-        progress: Number(this.milestoneForm.progress) || 0,
-        color,
-        module: this.milestoneForm.module || 'overview',
-      })
-      this.milestoneModalOpen = false
+      const color = PLAN_COLOR_PALETTE[this.serverMilestones.length % PLAN_COLOR_PALETTE.length]
+      this.milestoneSaving = true
+      this.milestoneError = ''
+      try {
+        const milestone = await createMilestone({
+          title: this.milestoneForm.title.trim(),
+          tag: this.milestoneForm.tag,
+          tagBg: '#f0eada',
+          tagCol: color,
+          desc: this.milestoneForm.desc.trim(),
+          progress: Number(this.milestoneForm.progress) || 0,
+          color,
+          module: this.milestoneForm.module || 'overview',
+        })
+        this.serverMilestones.push(milestone)
+        if (!this.demoEmpty) this.milestones.push(milestone)
+        this.milestoneModalOpen = false
+      } catch {
+        this.milestoneError = '新增失敗，請確認後端伺服器（server/）是否已啟動'
+      } finally {
+        this.milestoneSaving = false
+      }
     },
 
     openDailyTaskModal(editId: string | null = null) {

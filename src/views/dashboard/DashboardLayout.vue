@@ -1,12 +1,37 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useCoreStore } from '@/stores/core'
+import { useSettingsStore } from '@/stores/settings'
+import { usePlans } from '@/composables/usePlans'
+import { useMilestones } from '@/composables/useMilestones'
 import Modal from '@/components/common/Modal.vue'
 import Icon from '@/components/common/Icon.vue'
 
 const core = useCoreStore()
+const settings = useSettingsStore()
 const route = useRoute()
+
+// 計畫管理 module now reads/writes through the real API (see api-architecture.md);
+// this is the single place that hydrates the Pinia core store from the server
+// fetch so every consumer (Overview, ExecView, sidebar) keeps working unchanged.
+const plansQuery = usePlans()
+const milestonesQuery = useMilestones()
+watch(
+  () => plansQuery.data.value,
+  (plans) => {
+    if (plans) core.hydratePlans(plans)
+  },
+  { immediate: true },
+)
+watch(
+  () => milestonesQuery.data.value,
+  (milestones) => {
+    if (milestones) core.hydrateMilestones(milestones)
+  },
+  { immediate: true },
+)
+const apiUnreachable = computed(() => plansQuery.isError.value || milestonesQuery.isError.value)
 
 const navItems = [
   { name: 'overview', label: '計劃管理', icon: 'navGrid' },
@@ -51,7 +76,7 @@ const notifOpen = ref(false)
       :class="sidebarCollapsed ? 'w-18' : 'w-56'"
     >
       <div class="flex items-center gap-2.5 px-1 pb-4.5" :class="sidebarCollapsed ? 'justify-center' : ''">
-        <img src="/assets/mascot-dog-2.png" class="w-8.5 h-8.5 rounded-[10px] object-cover shrink-0" />
+        <img :src="settings.avatarSrc" class="w-8.5 h-8.5 rounded-[10px] object-cover shrink-0" />
         <div v-if="!sidebarCollapsed">
           <div class="font-medium text-ink-800 leading-tight whitespace-nowrap" style="font-size: 15px">WeeklyMind</div>
           <div class="text-xs text-sand-400 whitespace-nowrap">掌控你的每一週</div>
@@ -183,8 +208,15 @@ const notifOpen = ref(false)
               <p class="m-0 text-xs text-sand-400">今天的目標都打卡完成了 🎉</p>
             </div>
           </div>
-          <img src="/assets/mascot-dog-2.png" class="w-9 h-9 rounded-full object-cover border border-cream-150" />
+          <img :src="settings.avatarSrc" class="w-9 h-9 rounded-full object-cover border border-cream-150" />
         </div>
+      </div>
+      <div
+        v-if="apiUnreachable"
+        class="flex items-center gap-2.5 mb-4 px-4 py-3 rounded-control bg-amber-bg-soft border border-amber-solid text-amber-dark text-xs font-medium"
+      >
+        <Icon name="bell" :size="14" class="shrink-0" />
+        無法連接後端伺服器，計畫／里程碑資料暫時無法載入。請在 server/ 目錄執行「npm run dev」（或於根目錄執行「npm run dev:full」同時啟動前後端）。
       </div>
       <RouterView />
     </main>

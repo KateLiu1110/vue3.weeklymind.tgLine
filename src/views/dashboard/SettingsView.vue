@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { useCoreStore } from '@/stores/core'
-import { useSettingsStore } from '@/stores/settings'
+import { AVATAR_OPTIONS, useSettingsStore } from '@/stores/settings'
 import Icon from '@/components/common/Icon.vue'
 
 const core = useCoreStore()
 const settings = useSettingsStore()
 
-const avatarOptions = [
-  { id: 'default', src: '/assets/mascot-dog-2.png' },
-  { id: 'avatar1', src: '/assets/pet-avatar-1.png' },
-  { id: 'avatar2', src: '/assets/pet-avatar-2.png' },
-  { id: 'avatar3', src: '/assets/pet-avatar-3.png' },
-]
+const avatarOptions = AVATAR_OPTIONS
 </script>
 
 <template>

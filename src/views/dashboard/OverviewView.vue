@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { useCoreStore, MODULE_OPTIONS, PLAN_TEMPLATE_CARDS } from '@/stores/core'
 import { useOverviewStore } from '@/stores/overview'
+import { useSettingsStore } from '@/stores/settings'
 import Icon from '@/components/common/Icon.vue'
 import Modal from '@/components/common/Modal.vue'
 
@@ -10,6 +11,7 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
 
 const core = useCoreStore()
 const ov = useOverviewStore()
+const settings = useSettingsStore()
 
 const totalGoalCount = computed(() => core.plans.length)
 
@@ -47,7 +49,7 @@ const plansPieArcs = computed(() => {
 })
 const plansPieLegend = computed(() => core.plans.slice(0, 4).map((p) => ({ name: p.title, color: p.color })))
 
-function planDaysLabel(p: { targetDate?: string }): string {
+function planDaysLabel(p: { targetDate?: string | null }): string {
   return p.targetDate ? `至 ${dayjs(p.targetDate).format('M/D')}` : '無期限'
 }
 
@@ -77,7 +79,7 @@ const monthTopMilestone = computed(() =>
     >
       <div class="flex items-center gap-6">
         <div class="flex items-start gap-3.5 flex-[1.3] min-w-0">
-          <img src="/assets/mascot-dog-2.png" class="w-20 h-20 rounded-2xl object-cover shrink-0" />
+          <img :src="settings.avatarSrc" class="w-20 h-20 rounded-2xl object-cover shrink-0" />
           <div class="relative flex-1 min-w-0">
             <div class="relative bg-white rounded-card px-4 py-3">
               <p class="m-0 text-xs italic text-sand-600">每天的一小步，到了目標日都會變成巨大的里程碑！</p>
@@ -263,7 +265,7 @@ const monthTopMilestone = computed(() =>
           :key="ms.id"
           class="rounded-card p-4 flex gap-3 bg-cream-50 border border-cream-150"
         >
-          <img src="/assets/mascot-dog-2.png" class="w-9.5 h-9.5 rounded-xl object-cover shrink-0" />
+          <img :src="settings.avatarSrc" class="w-9.5 h-9.5 rounded-xl object-cover shrink-0" />
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-center">
               <span class="text-sm font-medium text-ink-900 whitespace-nowrap overflow-hidden text-ellipsis">{{ ms.title }}</span>
@@ -472,9 +474,17 @@ const monthTopMilestone = computed(() =>
         </div>
       </div>
       <p v-if="core.milestoneTouched && !core.milestoneForm.title.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫里程碑標題</p>
+      <p v-if="core.milestoneError" class="text-danger text-xs mb-2.5">⚠ {{ core.milestoneError }}</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeMilestoneModal()">取消</button>
-        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.saveMilestone()">儲存</button>
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="core.milestoneSaving"
+          @click="core.saveMilestone()"
+        >
+          {{ core.milestoneSaving ? '儲存中…' : '儲存' }}
+        </button>
       </div>
     </Modal>
 
@@ -540,9 +550,17 @@ const monthTopMilestone = computed(() =>
       </select>
       <p class="m-0 mb-3.5 text-xs text-sand-400">完成度將依每日打卡自動計算，無須手動設定</p>
       <p v-if="core.planTouched && !core.planForm.title.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫計畫名稱</p>
+      <p v-if="core.planError" class="text-danger text-xs mb-2.5">⚠ {{ core.planError }}</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closePlanModal()">取消</button>
-        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="core.savePlan()">新增</button>
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="core.planSaving"
+          @click="core.savePlan()"
+        >
+          {{ core.planSaving ? '新增中…' : '新增' }}
+        </button>
       </div>
     </Modal>
 

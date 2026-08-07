@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Plan {
+  id             String   @id @default(cuid())
+  title          String
+  sub            String   @default("")
+  pct            Int      @default(0)
+  checkinsDone   Int      @default(0)
+  color          String
+  module         String
+  weekdays       Json     @default("[]")
+  startTime      String   @default("")
+  endTime        String   @default("")
+  startDate      String?
+  targetDate     String?
+  linkedCustomId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Milestone {
+  id        String   @id @default(cuid())
+  title     String
+  tag       String
+  tagBg     String
+  tagCol    String
+  desc      String   @default("")
+  progress  Int      @default(0)
+  color     String
+  module    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
