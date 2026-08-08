@@ -1,18 +1,25 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', redirect: '/login' },
+    { path: '/register', redirect: '/login' },
     {
       path: '/login',
       name: 'login',
       component: () => import('../views/auth/LoginView.vue'),
     },
     {
-      path: '/register',
-      name: 'register',
-      component: () => import('../views/auth/RegisterView.vue'),
+      path: '/liff/login',
+      name: 'liff-login',
+      component: () => import('../views/auth/LiffLoginView.vue'),
+    },
+    {
+      path: '/login/line-callback',
+      name: 'line-callback',
+      component: () => import('../views/auth/LineCallbackView.vue'),
     },
     {
       path: '/line/notify',
@@ -27,6 +34,7 @@ const router = createRouter({
     {
       path: '/app',
       component: () => import('../views/dashboard/DashboardLayout.vue'),
+      meta: { requiresAuth: true },
       children: [
         { path: '', redirect: { name: 'overview' } },
         {
@@ -82,6 +90,12 @@ const router = createRouter({
       ],
     },
   ],
+})
+
+router.beforeEach((to) => {
+  if (to.meta.requiresAuth && !useAuthStore().isLoggedIn) {
+    return { name: 'login' }
+  }
 })
 
 export default router

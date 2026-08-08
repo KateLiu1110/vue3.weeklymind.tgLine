@@ -2,13 +2,25 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Keep in sync with DEMO_ACCOUNT_PHONE in src/stores/core.ts.
+const DEMO_ACCOUNT_PHONE = '0912-345-678'
+
 async function main() {
-  await prisma.plan.deleteMany()
-  await prisma.milestone.deleteMany()
+  const demoUser = await prisma.user.upsert({
+    where: { phone: DEMO_ACCOUNT_PHONE },
+    update: {},
+    create: { phone: DEMO_ACCOUNT_PHONE, displayName: '示範帳號' },
+  })
+
+  // Only reset the demo account's own data — re-seeding must never touch
+  // other real users' plans/milestones.
+  await prisma.plan.deleteMany({ where: { userId: demoUser.id } })
+  await prisma.milestone.deleteMany({ where: { userId: demoUser.id } })
 
   await prisma.plan.createMany({
     data: [
       {
+        userId: demoUser.id,
         title: '鐵人三項報名',
         sub: '賽事報名完成',
         pct: 0,
@@ -20,6 +32,7 @@ async function main() {
         endTime: '',
       },
       {
+        userId: demoUser.id,
         title: '多益備考衝刺',
         sub: '週一至週五 07:00–08:00',
         pct: 62,
@@ -33,6 +46,7 @@ async function main() {
         targetDate: '2026-10-01',
       },
       {
+        userId: demoUser.id,
         title: '重訓計畫',
         sub: '週一、三、五 19:00–20:00',
         pct: 40,
@@ -46,6 +60,7 @@ async function main() {
         targetDate: '2026-09-01',
       },
       {
+        userId: demoUser.id,
         title: '作品集網站上線',
         sub: '週六整理進度',
         pct: 55,
@@ -64,6 +79,7 @@ async function main() {
   await prisma.milestone.createMany({
     data: [
       {
+        userId: demoUser.id,
         title: '多益 600 分',
         tag: '重點',
         tagBg: '#f0eada',
@@ -74,6 +90,7 @@ async function main() {
         module: 'toeic',
       },
       {
+        userId: demoUser.id,
         title: '作品集初版',
         tag: '進行中',
         tagBg: '#eef3ea',

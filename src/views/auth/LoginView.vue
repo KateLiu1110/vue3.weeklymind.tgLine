@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useField, useForm } from 'vee-validate'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useCoreStore } from '@/stores/core'
 
-const router = useRouter()
+const route = useRoute()
 const core = useCoreStore()
 
-const codeSent = ref(false)
-const submitAttempted = ref(false)
-
-const { handleSubmit } = useForm({
-  validationSchema: {
-    phone: (value: unknown) => (typeof value === 'string' && value.trim() ? true : '請填寫手機號碼'),
-  },
+const lineLoginError = computed(() => {
+  if (route.query.error === 'line_login_not_configured') return 'LINE 登入尚未設定，請洽管理員設定 LINE Login Channel'
+  if (route.query.error === 'line_login_failed') return 'LINE 登入失敗，請重新嘗試'
+  return ''
 })
-const { value: phone, errorMessage: phoneError } = useField<string>('phone')
 
 const platformTab = computed(() => {
   const p = core.botPlatform
@@ -29,17 +24,11 @@ function selectPlatform(platform: 'line' | 'telegram') {
   core.setBotPlatform(platform)
 }
 
-const sendCode = handleSubmit(
-  () => {
-    codeSent.value = true
-  },
-  () => {
-    submitAttempted.value = true
-  },
-)
-
-function login() {
-  router.push({ name: 'overview' })
+function loginWithLine() {
+  // Telegram 登入還沒實作，這顆按鈕目前只支援 LINE。
+  if (core.botPlatform !== 'line') return
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'
+  window.location.href = `${apiBase}/auth/line/login`
 }
 </script>
 
@@ -53,7 +42,7 @@ function login() {
         <img src="/assets/mascot-dog-2.png" class="w-18 h-18 object-contain" />
         <div class="text-center">
           <div class="font-medium text-ink-800" style="font-size: 19px">WeeklyMind</div>
-          <p class="text-sand-500 mt-0.5" style="font-size: 12.5px">登入以繼續你的每週計畫</p>
+          <p class="text-sand-500 mt-0.5" style="font-size: 12.5px">綁定帳號以繼續你的每週計畫</p>
         </div>
       </div>
 
@@ -82,66 +71,15 @@ function login() {
         type="button"
         class="flex items-center justify-center gap-2.5 w-full text-white font-medium py-3.5 rounded-control cursor-pointer"
         :class="platformTab.btnClass"
+        @click="loginWithLine"
       >
         <span class="w-5 h-4 bg-white rounded" style="border-radius: 6px 6px 6px 2px" />
         使用 {{ platformTab.label }} 帳號登入
       </button>
-
-      <div class="flex items-center gap-2.5 my-5.5">
-        <div class="flex-1 h-px bg-cream-150" />
-        <span class="text-sand-400 text-xs">或使用手機號碼</span>
-        <div class="flex-1 h-px bg-cream-150" />
-      </div>
-
-      <label class="text-ink-700 font-medium" style="font-size: 12.5px">手機號碼</label>
-      <input
-        v-model="phone"
-        type="tel"
-        placeholder="0912-345-678"
-        class="w-full mt-1.5 mb-4 px-3.5 py-3 rounded-control border bg-white text-sm text-ink-900 outline-none"
-        :class="submitAttempted && phoneError ? 'border-coral' : 'border-sand-200'"
-      />
-
-      <div v-if="codeSent">
-        <label class="text-ink-700 font-medium" style="font-size: 12.5px">驗證碼</label>
-        <input
-          type="text"
-          placeholder="輸入 6 位數驗證碼"
-          class="w-full mt-1.5 mb-1.5 px-3.5 py-3 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none tracking-widest"
-        />
-        <div class="text-sand-500 mb-4" style="font-size: 11.5px">
-          已發送至你的手機，<span class="text-brand-primary font-medium cursor-pointer">重新發送</span>
-        </div>
-        <button
-          type="button"
-          class="block w-full text-center bg-brand-primary text-white font-medium py-3.5 rounded-control cursor-pointer"
-          @click="login"
-        >
-          登入並綁定 {{ platformTab.label }} 通知
-        </button>
-      </div>
-      <template v-else>
-        <button
-          type="button"
-          class="block w-full text-center bg-brand-primary text-white font-medium py-3.5 rounded-control cursor-pointer"
-          @click="sendCode"
-        >
-          發送驗證碼
-        </button>
-        <p v-if="submitAttempted && phoneError" class="text-danger text-xs mt-2.5 text-center">{{ phoneError }}</p>
-      </template>
-
-      <RouterLink
-        :to="{ name: 'overview' }"
-        class="block text-center mt-3 text-xs text-brand-primary font-medium"
-      >
-        直接進入主控台（跳過登入）
-      </RouterLink>
-      <RouterLink :to="{ name: 'register' }" class="block text-center mt-2.5 text-sand-600" style="font-size: 12.5px">
-        還沒有帳號？<span class="text-brand-primary font-medium">立即註冊</span>
-      </RouterLink>
+      <p v-if="lineLoginError" class="mt-2.5 text-danger text-xs text-center">⚠ {{ lineLoginError }}</p>
 
       <p class="mt-5 text-sand-400 text-center leading-relaxed" style="font-size: 11.5px">
+        第一次用 {{ platformTab.label }} 帳號登入會自動建立帳號，不用另外註冊。<br />
         登入即代表你同意透過 {{ platformTab.label }} 接收每日任務推播與週報告
       </p>
     </div>

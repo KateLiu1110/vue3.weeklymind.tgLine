@@ -2,8 +2,10 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
+import { requireAuth } from '../middleware/auth.js'
 
 export const plansRouter = Router()
+plansRouter.use(requireAuth)
 
 const planInput = z.object({
   title: z.string().min(1),
@@ -22,15 +24,15 @@ const planInput = z.object({
 
 const planPatch = planInput.partial()
 
-plansRouter.get('/', async (_req, res) => {
-  const plans = await prisma.plan.findMany({ orderBy: { createdAt: 'asc' } })
+plansRouter.get('/', async (req, res) => {
+  const plans = await prisma.plan.findMany({ where: { userId: req.userId }, orderBy: { createdAt: 'asc' } })
   res.json({ ok: true, data: plans })
 })
 
 plansRouter.post('/', async (req, res, next) => {
   try {
     const body = planInput.parse(req.body)
-    const plan = await prisma.plan.create({ data: body })
+    const plan = await prisma.plan.create({ data: { ...body, userId: req.userId } })
     res.status(201).json({ ok: true, data: plan })
   } catch (err) {
     next(err)
@@ -41,7 +43,7 @@ plansRouter.patch('/:id', async (req, res, next) => {
   try {
     const body = planPatch.parse(req.body)
     const exists = await prisma.plan.findUnique({ where: { id: req.params.id } })
-    if (!exists) throw ApiBusinessError.notFound('Plan')
+    if (!exists || exists.userId !== req.userId) throw ApiBusinessError.notFound('Plan')
     const plan = await prisma.plan.update({ where: { id: req.params.id }, data: body })
     res.json({ ok: true, data: plan })
   } catch (err) {
@@ -52,7 +54,7 @@ plansRouter.patch('/:id', async (req, res, next) => {
 plansRouter.delete('/:id', async (req, res, next) => {
   try {
     const exists = await prisma.plan.findUnique({ where: { id: req.params.id } })
-    if (!exists) throw ApiBusinessError.notFound('Plan')
+    if (!exists || exists.userId !== req.userId) throw ApiBusinessError.notFound('Plan')
     await prisma.plan.delete({ where: { id: req.params.id } })
     res.status(204).send()
   } catch (err) {

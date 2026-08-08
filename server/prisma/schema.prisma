@@ -3,12 +3,47 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum SportCategory {
+  run
+  gym
+  yoga
+}
+
+enum LinkPlatform {
+  ig
+  threads
+  fb
+  other
+}
+
+model User {
+  id          String   @id @default(cuid())
+  phone       String?  @unique
+  lineUserId  String?  @unique
+  displayName String   @default("")
+  avatarUrl   String?
+  botPlatform String   @default("line")
+  botLang     String   @default("zh")
+  createdAt   DateTime @default(now())
+
+  plans          Plan[]
+  milestones     Milestone[]
+  linkRules      LinkRule[]
+  savedLinks     SavedLink[]
+  sportLogs      SportLog[]
+  toeicProgress  ToeicProgress[]
+  projects       Project[]
+  dailyTasks     DailyTask[]
 }
 
 model Plan {
   id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
   title          String
   sub            String   @default("")
   pct            Int      @default(0)
@@ -23,10 +58,14 @@ model Plan {
   linkedCustomId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Milestone {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
   title     String
   tag       String
   tagBg     String
@@ -37,4 +76,86 @@ model Milestone {
   module    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// LINE Bot: 使用者為每個平台設定的自動歸類規則（例如 Instagram 連結一律歸類「設計靈感」）。
+model LinkRule {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  platform  LinkPlatform
+  category  String
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+}
+
+// LINE Bot: 使用者傳連結時自動收藏＋分類的紀錄，對應「連結收藏」頁面資料來源。
+model SavedLink {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  url       String
+  platform  LinkPlatform
+  category  String
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+}
+
+// LINE Bot: 使用者傳「跑了5公里」之類的訊息時記錄的運動打卡。
+model SportLog {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  category    SportCategory
+  detail      String?
+  distanceKm  Decimal?
+  loggedAt    DateTime      @default(now())
+
+  @@index([userId])
+}
+
+// LINE Bot: 多益每日打卡（背單字/閱讀測驗/克漏字/對話），一個使用者一天一筆。
+model ToeicProgress {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  date          DateTime
+  vocabDone     Boolean  @default(false)
+  readingDone   Boolean  @default(false)
+  clozeDone     Boolean  @default(false)
+  dialogueDone  Boolean  @default(false)
+  textbookPct   Int      @default(0)
+
+  @@unique([userId, date])
+}
+
+// LINE Bot: 作品集看板專案，對應「作品集看板」頁面的卡片資料來源。
+model Project {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  status    String   @default("todo") // 'todo' | 'doing' | 'done'
+  dailyPct  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// LINE Bot: 一般學習/生活類打卡紀錄（例如「學了 Vue 的 composable」）。
+model DailyTask {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  category    String
+  title       String
+  source      String    @default("line") // 'line' | 'web'
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
 }

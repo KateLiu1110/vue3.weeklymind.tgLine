@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: weeklymind
+      POSTGRES_PASSWORD: weeklymind
+      POSTGRES_DB: weeklymind
+    ports:
+      - '5434:5432'
+    volumes:
+      - weeklymind_pgdata:/var/lib/postgresql/data
+
+volumes:
+  weeklymind_pgdata:

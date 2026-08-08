@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useCoreStore } from '@/stores/core'
 import { useSettingsStore } from '@/stores/settings'
+import { useAuthStore } from '@/stores/auth'
 import { usePlans } from '@/composables/usePlans'
 import { useMilestones } from '@/composables/useMilestones'
 import Modal from '@/components/common/Modal.vue'
@@ -10,7 +11,14 @@ import Icon from '@/components/common/Icon.vue'
 
 const core = useCoreStore()
 const settings = useSettingsStore()
+const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
+
+function logout() {
+  auth.logout()
+  router.push({ name: 'login' })
+}
 
 // 計畫管理 module now reads/writes through the real API (see api-architecture.md);
 // this is the single place that hydrates the Pinia core store from the server
@@ -177,9 +185,9 @@ const notifOpen = ref(false)
           <Icon name="navHelp" :size="14" />
           <span v-if="!sidebarCollapsed" class="whitespace-nowrap">說明</span>
         </span>
-        <RouterLink v-if="!sidebarCollapsed" :to="{ name: 'login' }" class="flex items-center gap-1.5 whitespace-nowrap">
+        <span v-if="!sidebarCollapsed" class="flex items-center gap-1.5 whitespace-nowrap cursor-pointer" @click="logout">
           <Icon name="navLogout" :size="14" />登出
-        </RouterLink>
+        </span>
       </div>
     </aside>
 

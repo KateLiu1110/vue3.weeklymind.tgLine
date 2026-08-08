@@ -151,6 +151,12 @@ function createBlankCustomModule(kind: CustomModuleKind, title: string): CustomM
 
 const PLAN_COLOR_PALETTE = ['#ffb21d', '#c9a876', '#2f6bd8', '#b08968']
 
+// There's no real auth backend yet, so login/register simulate the two account
+// states this way: this one phone number is the "existing account" with demo
+// data; any other number (or a fresh registration) is treated as brand-new
+// and lands on the empty state instead. See LOGIN_操作手冊.md.
+export const DEMO_ACCOUNT_PHONE = '0912-345-678'
+
 export const MODULE_OPTIONS = [
   { value: 'overview', label: '計劃管理' },
   { value: 'exec', label: '執行中心' },
@@ -258,7 +264,10 @@ export const useCoreStore = defineStore('core', {
       }
     },
     toggleDemoEmpty() {
-      this.demoEmpty = !this.demoEmpty
+      this.setDemoEmpty(!this.demoEmpty)
+    },
+    setDemoEmpty(value: boolean) {
+      this.demoEmpty = value
       if (this.demoEmpty) {
         this.plans = []
         this.milestones = []
@@ -266,6 +275,11 @@ export const useCoreStore = defineStore('core', {
         this.plans = [...this.serverPlans]
         this.milestones = [...this.serverMilestones]
       }
+      // customModules are pure local mock data (never persisted to the backend),
+      // so they belong to whichever account session created them — switching
+      // accounts (login/register/demo toggle) must not leak them across.
+      this.customModules = []
+      this.activeCustomId = null
     },
     hydratePlans(plans: Plan[]) {
       this.serverPlans = plans

@@ -15,14 +15,18 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@line/bot-sdk": "^11.2.0",
     "@prisma/client": "^6.3.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.6.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^24.13.2",
     "prisma": "^6.3.1",
     "tsx": "^4.19.2",

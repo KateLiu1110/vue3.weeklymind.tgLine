@@ -5,4 +5,7 @@ export const queryKeys = {
   milestones: {
     all: ['milestones'] as const,
   },
+  dailyTasks: {
+    all: ['dailyTasks'] as const,
+  },
 }

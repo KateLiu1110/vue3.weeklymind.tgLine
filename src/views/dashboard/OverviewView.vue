@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
 import { useCoreStore, MODULE_OPTIONS, PLAN_TEMPLATE_CARDS } from '@/stores/core'
 import { useOverviewStore } from '@/stores/overview'
 import { useSettingsStore } from '@/stores/settings'
+import { useDailyTaskMutations, useDailyTasks } from '@/composables/useDailyTasks'
 import Icon from '@/components/common/Icon.vue'
 import Modal from '@/components/common/Modal.vue'
 
@@ -12,6 +13,17 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
 const core = useCoreStore()
 const ov = useOverviewStore()
 const settings = useSettingsStore()
+
+// 臨時待辦事項：隨手記的一次性任務，跟計畫/里程碑一樣是真的打 API（見 api-architecture.md §2.4）。
+const dailyTasksQuery = useDailyTasks()
+const dailyTaskMutations = useDailyTaskMutations()
+const dailyTaskDraft = ref('')
+function submitDailyTask() {
+  const title = dailyTaskDraft.value.trim()
+  if (!title) return
+  dailyTaskMutations.createTaskMutation.mutate(title)
+  dailyTaskDraft.value = ''
+}
 
 const totalGoalCount = computed(() => core.plans.length)
 
@@ -414,6 +426,57 @@ const monthTopMilestone = computed(() =>
         <div v-for="a in ov.achievements" :key="a.id" class="rounded-card px-4 py-2.5 flex items-center gap-2.5 bg-cream-50 border border-cream-150">
           <span class="flex-1 text-sm text-ink-900">{{ a.text }}</span>
           <span class="cursor-pointer text-danger shrink-0" @click="ov.deleteAchievement(a.id)"><Icon name="trash" :size="13" /></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ad-hoc tasks (臨時待辦事項) -->
+    <div>
+      <div class="flex items-center justify-between mt-1.5 mb-2.5">
+        <span class="text-sm font-medium text-ink-800">臨時待辦事項</span>
+        <span class="text-xs text-sand-400">隨手記，也可以直接跟 LINE Bot 說</span>
+      </div>
+      <div class="rounded-card p-4 bg-cream-50 border border-cream-150">
+        <div class="flex gap-2 mb-3">
+          <input
+            v-model="dailyTaskDraft"
+            type="text"
+            placeholder="輸入待辦事項，按 Enter 新增"
+            class="flex-1 px-3 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+            @keydown.enter="submitDailyTask"
+          />
+          <button
+            type="button"
+            class="px-4 py-2 rounded-control bg-brand-primary text-white text-xs font-medium cursor-pointer shrink-0"
+            @click="submitDailyTask"
+          >
+            新增
+          </button>
+        </div>
+        <p
+          v-if="(dailyTasksQuery.data.value ?? []).length === 0"
+          class="m-0 text-xs text-sand-400 text-center py-2"
+        >
+          還沒有臨時待辦，輸入上面欄位新增第一筆
+        </p>
+        <div v-else class="flex flex-col gap-2">
+          <div
+            v-for="t in dailyTasksQuery.data.value"
+            :key="t.id"
+            class="flex items-center gap-2.5 px-3 py-2 rounded-control bg-cream-100"
+          >
+            <span
+              class="w-4.5 h-4.5 rounded-full border-2 shrink-0 cursor-pointer flex items-center justify-center"
+              :class="t.completedAt ? 'bg-brand-primary border-brand-primary' : 'border-sand-275'"
+              @click="dailyTaskMutations.toggleTaskMutation.mutate(t.id)"
+            >
+              <Icon v-if="t.completedAt" name="checkCircle" :size="11" class="text-white" />
+            </span>
+            <span class="flex-1 text-sm" :class="t.completedAt ? 'text-sand-400 line-through' : 'text-ink-900'">{{ t.title }}</span>
+            <span class="cursor-pointer text-danger shrink-0" @click="dailyTaskMutations.deleteTaskMutation.mutate(t.id)">
+              <Icon name="trash" :size="13" />
+            </span>
+          </div>
         </div>
       </div>
     </div>
