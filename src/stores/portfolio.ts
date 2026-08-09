@@ -1,92 +1,44 @@
 import { defineStore } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 
-export interface Project {
-  id: string
-  name: string
-  caption: string
+export type ProjectStatus = 'todo' | 'doing' | 'done'
+
+export const COLUMN_META: Record<ProjectStatus, { label: string; badgeText: string; badgeBg: string; badgeCol: string }> = {
+  todo: { label: '待辦', badgeText: 'TODO', badgeBg: 'bg-cream-100', badgeCol: 'text-clay-500' },
+  doing: { label: '進行中', badgeText: 'IN PROGRESS', badgeBg: 'bg-status-inprogress', badgeCol: 'text-white' },
+  done: { label: '已完成', badgeText: 'DONE', badgeBg: 'bg-success-bg-soft', badgeCol: 'text-brand-primary' },
 }
+export const COLUMN_ORDER: ProjectStatus[] = ['todo', 'doing', 'done']
 
-export interface Column {
-  id: 'todo' | 'doing' | 'done'
-  label: string
-  badgeBg: string
-  badgeCol: string
-  items: Project[]
-}
-
+// 資料本體改由 usePortfolioBoard composable（TanStack Query）提供，這裡只留 Modal/表單的 UI 狀態。
 export const usePortfolioStore = defineStore('portfolio', {
   state: () => ({
-    columns: [
-      {
-        id: 'todo',
-        label: '待辦',
-        badgeBg: 'bg-cream-100',
-        badgeCol: 'text-clay-500',
-        items: [
-          { id: 'rail', name: '台鐵', caption: '訂票流程重新設計' },
-          { id: 'ins', name: '保險', caption: '保單比較資訊頁' },
-        ],
-      },
-      {
-        id: 'doing',
-        label: '進行中',
-        badgeBg: 'bg-status-inprogress',
-        badgeCol: 'text-white',
-        items: [
-          { id: 'meal', name: '訂便當', caption: '每日訂餐小工具' },
-          { id: 'site', name: '自有網站', caption: '個人網站首頁 + 專案頁' },
-          { id: 'intro', name: '英文自我介紹', caption: '面試用 30 秒自介腳本' },
-        ],
-      },
-      {
-        id: 'done',
-        label: '已完成',
-        badgeBg: 'bg-success-bg-soft',
-        badgeCol: 'text-brand-primary',
-        items: [{ id: 'fe', name: '前端知識', caption: 'React / Vue 筆記整理' }],
-      },
-    ] as Column[],
-
     modalOpen: false,
     editId: null as string | null,
-    form: { name: '', desc: '', start: '', end: '', daily: '0', weekly: '0', monthly: '0', fileName: '' },
+    form: { name: '', desc: '' },
     touched: false,
   }),
   getters: {
-    isEmpty(state): boolean {
-      return state.columns.every((c) => c.items.length === 0)
-    },
     modalTitle(state): string {
       return state.editId ? '編輯專案' : '新增專案'
     },
   },
   actions: {
     openNewProject() {
+      if (!useAuthStore().requireLogin()) return
       this.editId = null
-      this.form = { name: '', desc: '', start: '', end: '', daily: '0', weekly: '0', monthly: '0', fileName: '' }
+      this.form = { name: '', desc: '' }
+      this.touched = false
+      this.modalOpen = true
+    },
+    openEditProject(project: { id: string; name: string; caption: string }) {
+      if (!useAuthStore().requireLogin()) return
+      this.editId = project.id
+      this.form = { name: project.name, desc: project.caption }
       this.touched = false
       this.modalOpen = true
     },
     closeModal() {
-      this.modalOpen = false
-    },
-    saveForm() {
-      if (!this.form.name.trim()) {
-        this.touched = true
-        return
-      }
-      if (this.editId) {
-        for (const col of this.columns) {
-          const p = col.items.find((x) => x.id === this.editId)
-          if (p) {
-            p.name = this.form.name.trim()
-            p.caption = this.form.desc.trim()
-            break
-          }
-        }
-      } else {
-        this.columns[0].items.push({ id: 'pj' + Date.now(), name: this.form.name.trim(), caption: this.form.desc.trim() })
-      }
       this.modalOpen = false
     },
   },

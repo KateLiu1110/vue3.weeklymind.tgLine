@@ -20,3 +20,8 @@ export async function updatePlan(id: string, input: PlanUpdateInput): Promise<Pl
 export async function deletePlan(id: string): Promise<void> {
   await apiClient.delete(`/plans/${id}`)
 }
+
+export async function checkinPlan(id: string): Promise<Plan> {
+  const res = await apiClient.patch<ApiSuccess<Plan>>(`/plans/${id}/checkin`)
+  return res.data.data
+}

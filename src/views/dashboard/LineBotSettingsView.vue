@@ -2,10 +2,12 @@
 import { computed, ref } from 'vue'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore } from '@/stores/core'
+import { useAuthStore } from '@/stores/auth'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const core = useCoreStore()
+const auth = useAuthStore()
 
 interface Reminder {
   id: string
@@ -14,15 +16,15 @@ interface Reminder {
 }
 
 const reminders = ref<Reminder[]>(
-  core.demoEmpty
-    ? []
-    : [
+  auth.isLoggedIn
+    ? [
         { id: 'li1', text: '補買雞胸肉、地瓜、燕麥', time: '07:30' },
         { id: 'li2', text: '背 20 個多益單字', time: '07:30' },
         { id: 'li3', text: '深蹲 4x8 · 引體向上 3x6', time: '18:00' },
         { id: 'li4', text: '《原子習慣》閱讀 30 頁', time: '21:00' },
         { id: 'li5', text: '學一個 Vue 3 概念', time: '21:00' },
-      ],
+      ]
+    : [],
 )
 
 function deleteReminder(id: string) {

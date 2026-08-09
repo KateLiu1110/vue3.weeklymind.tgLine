@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { createPlan, deletePlan } from '@/api/client/plans'
 import { createMilestone } from '@/api/client/milestones'
+import { useAuthStore } from '@/stores/auth'
+import { queryClient } from '@/plugins/queryClient'
+import { queryKeys } from '@/api/queryKeys'
 
 export type BotPlatform = 'line' | 'telegram'
 export type BotLang = 'zh' | 'en'
@@ -171,16 +174,13 @@ export const MODULE_OPTIONS = [
 
 export const useCoreStore = defineStore('core', {
   state: () => ({
-    demoEmpty: false,
     botPlatform: 'line' as BotPlatform,
     botLang: 'zh' as BotLang,
     // Server-backed: hydrated from the API by DashboardLayout on mount (see hydratePlans/
-    // hydrateMilestones). serverPlans/serverMilestones keep the real fetched list around so
-    // toggleDemoEmpty can restore it without refetching.
+    // hydrateMilestones). Guests never have a token, so the underlying query never
+    // fires and these simply stay empty — no separate "demo empty" flag needed.
     plans: [] as Plan[],
     milestones: [] as Milestone[],
-    serverPlans: [] as Plan[],
-    serverMilestones: [] as Milestone[],
     customModules: [] as CustomModule[],
     activeCustomId: null as string | null,
     streakDays: 14,
@@ -258,36 +258,33 @@ export const useCoreStore = defineStore('core', {
       return mod
     },
     deleteCustomModule(id: string) {
+      if (!useAuthStore().requireLogin()) return
       this.customModules = this.customModules.filter((m) => m.id !== id)
       if (this.activeCustomId === id) {
         this.activeCustomId = this.customModules[0]?.id ?? null
       }
     },
-    toggleDemoEmpty() {
-      this.setDemoEmpty(!this.demoEmpty)
+    /** 側邊欄「目標計畫」的刪除入口：一個計畫永遠對應一個自訂模組頁面（見 savePlan），
+     * 兩邊要一起刪，不然會留下沒有計畫的空模組、或計畫列表裡點不進去的殭屍項目。 */
+    async deletePlanAndModule(customModuleId: string) {
+      if (!useAuthStore().requireLogin()) return
+      const plan = this.plans.find((p) => p.linkedCustomId === customModuleId)
+      this.deleteCustomModule(customModuleId)
+      if (plan) await this.removePlan(plan.id)
     },
-    setDemoEmpty(value: boolean) {
-      this.demoEmpty = value
-      if (this.demoEmpty) {
-        this.plans = []
-        this.milestones = []
-      } else {
-        this.plans = [...this.serverPlans]
-        this.milestones = [...this.serverMilestones]
-      }
-      // customModules are pure local mock data (never persisted to the backend),
-      // so they belong to whichever account session created them — switching
-      // accounts (login/register/demo toggle) must not leak them across.
+    /** Called once per login/logout transition (see DashboardLayout) to clear out
+     * whichever account's local-only custom modules were showing. */
+    resetLocalState() {
+      this.plans = []
+      this.milestones = []
       this.customModules = []
       this.activeCustomId = null
     },
     hydratePlans(plans: Plan[]) {
-      this.serverPlans = plans
-      if (!this.demoEmpty) this.plans = plans
+      this.plans = plans
     },
     hydrateMilestones(milestones: Milestone[]) {
-      this.serverMilestones = milestones
-      if (!this.demoEmpty) this.milestones = milestones
+      this.milestones = milestones
     },
     setBotPlatform(platform: BotPlatform) {
       this.botPlatform = platform
@@ -299,8 +296,8 @@ export const useCoreStore = defineStore('core', {
       this.activeCustomId = id
     },
     async removePlan(id: string) {
+      if (!useAuthStore().requireLogin()) return
       this.plans = this.plans.filter((p) => p.id !== id)
-      this.serverPlans = this.serverPlans.filter((p) => p.id !== id)
       await deletePlan(id)
     },
 
@@ -312,6 +309,7 @@ export const useCoreStore = defineStore('core', {
     },
 
     openPlanModal() {
+      if (!useAuthStore().requireLogin()) return
       this.planForm = { title: '', sub: '', template: 'goal', weekdays: [], startTime: '', endTime: '', months: '1' }
       this.planTouched = false
       this.planError = ''
@@ -340,7 +338,7 @@ export const useCoreStore = defineStore('core', {
         return
       }
       const title = this.planForm.title.trim()
-      const color = PLAN_COLOR_PALETTE[this.serverPlans.length % PLAN_COLOR_PALETTE.length]
+      const color = PLAN_COLOR_PALETTE[this.plans.length % PLAN_COLOR_PALETTE.length]
       // A plan always drives a matching custom-module page (的 目標/看板/Tab 模板),
       // mirroring how the design source's plan-template picker unlocks a page.
       const mod = createBlankCustomModule(this.planForm.template, title)
@@ -362,9 +360,10 @@ export const useCoreStore = defineStore('core', {
           endTime: this.planForm.endTime,
           linkedCustomId: mod.id,
         })
-        this.serverPlans.push(plan)
-        if (!this.demoEmpty) this.plans.push(plan)
+        this.plans.push(plan)
         this.planModalOpen = false
+        // 新增第一個計畫是「連結收藏」的解鎖條件之一，讓側邊欄鎖定狀態跟著更新。
+        queryClient.invalidateQueries({ queryKey: queryKeys.achievements.all })
       } catch {
         // Roll back the local module so a failed save doesn't leave an orphaned
         // sidebar entry with no plan behind it.
@@ -376,6 +375,7 @@ export const useCoreStore = defineStore('core', {
     },
 
     openMilestoneModal() {
+      if (!useAuthStore().requireLogin()) return
       this.milestoneForm = { title: '', desc: '', module: '', tag: '重點', progress: '0' }
       this.milestoneTouched = false
       this.milestoneError = ''
@@ -389,7 +389,7 @@ export const useCoreStore = defineStore('core', {
         this.milestoneTouched = true
         return
       }
-      const color = PLAN_COLOR_PALETTE[this.serverMilestones.length % PLAN_COLOR_PALETTE.length]
+      const color = PLAN_COLOR_PALETTE[this.milestones.length % PLAN_COLOR_PALETTE.length]
       this.milestoneSaving = true
       this.milestoneError = ''
       try {
@@ -403,8 +403,7 @@ export const useCoreStore = defineStore('core', {
           color,
           module: this.milestoneForm.module || 'overview',
         })
-        this.serverMilestones.push(milestone)
-        if (!this.demoEmpty) this.milestones.push(milestone)
+        this.milestones.push(milestone)
         this.milestoneModalOpen = false
       } catch {
         this.milestoneError = '新增失敗，請確認後端伺服器（server/）是否已啟動'

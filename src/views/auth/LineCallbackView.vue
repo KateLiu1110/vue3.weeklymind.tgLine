@@ -24,7 +24,7 @@ onMounted(async () => {
     setToken(token)
     const user = await fetchMe()
     auth.setSession(user, token)
-    core.setDemoEmpty(false)
+    core.resetLocalState()
     router.replace({ name: 'overview' })
   } catch {
     errorMessage.value = '登入失敗，請重新嘗試'

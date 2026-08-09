@@ -4,6 +4,7 @@ import { prisma } from '../db.js'
 import { detectIntent, pickChatReply, type Intent } from '../services/ai.js'
 import { replyMessages, textMessage, buildLinkClassificationFlex, getCheckListFlex } from '../services/line.js'
 import { detectPlatform } from '../services/linkClassifier.js'
+import { checkAndUnlockAchievements } from '../lib/achievements.js'
 
 // --- 初始化 LINE 設定 ---
 const config = {
@@ -67,11 +68,13 @@ async function handleEvent(event: line.webhook.Event) {
       ])
     }
     await handleTextMessage(userId, event.replyToken, text)
+    await checkAndUnlockAchievements(userId)
     return
   }
 
   if (event.type === 'postback' && event.replyToken) {
     await handlePostback(userId, event.replyToken, event.postback.data)
+    await checkAndUnlockAchievements(userId)
   }
 }
 

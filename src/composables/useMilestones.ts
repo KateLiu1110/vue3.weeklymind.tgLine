@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { queryKeys } from '@/api/queryKeys'
 import { createMilestone, deleteMilestone, fetchMilestones, updateMilestone } from '@/api/client/milestones'
+import { useAuthStore } from '@/stores/auth'
 import type { MilestoneCreateInput, MilestoneUpdateInput } from '@/types/api'
 
 export function useMilestones() {
+  const auth = useAuthStore()
   return useQuery({
     queryKey: queryKeys.milestones.all,
     queryFn: fetchMilestones,
+    enabled: () => auth.isLoggedIn,
   })
 }
 

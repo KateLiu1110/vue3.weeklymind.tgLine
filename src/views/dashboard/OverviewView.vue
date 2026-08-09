@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
-import { useCoreStore, MODULE_OPTIONS, PLAN_TEMPLATE_CARDS } from '@/stores/core'
+import { useCoreStore, MODULE_OPTIONS } from '@/stores/core'
 import { useOverviewStore } from '@/stores/overview'
 import { useSettingsStore } from '@/stores/settings'
 import { useDailyTaskMutations, useDailyTasks } from '@/composables/useDailyTasks'
+import { useOverviewMutations, useOverviewPage } from '@/composables/useOverview'
 import Icon from '@/components/common/Icon.vue'
 import Modal from '@/components/common/Modal.vue'
-
-const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
 
 const core = useCoreStore()
 const ov = useOverviewStore()
@@ -23,6 +22,85 @@ function submitDailyTask() {
   if (!title) return
   dailyTaskMutations.createTaskMutation.mutate(title)
   dailyTaskDraft.value = ''
+}
+
+// 首頁的目標句子/行程提醒/專注任務/成長目標/今日小成就：真的打 API，訪客與剛註冊的空帳號
+// 自然呈現空狀態，不會像過去那樣一直顯示寫死的示範內容。
+const pageQuery = useOverviewPage()
+const {
+  updateGoalMutation,
+  createScheduleMutation,
+  toggleScheduleMutation,
+  deleteScheduleMutation,
+  createFocusTaskMutation,
+  deleteFocusTaskMutation,
+  createGrowthGoalMutation,
+  deleteGrowthGoalMutation,
+  createAchievementMutation,
+  deleteAchievementMutation,
+} = useOverviewMutations()
+
+const goalTitle = computed(() => pageQuery.data.value?.goalTitle ?? '')
+const schedules = computed(() => pageQuery.data.value?.schedules ?? [])
+const focusTasks = computed(() => pageQuery.data.value?.focusTasks ?? [])
+const growthGoals = computed(() => pageQuery.data.value?.growthGoals ?? [])
+const achievements = computed(() => pageQuery.data.value?.achievements ?? [])
+
+function saveGoal() {
+  if (ov.goalDraft.trim()) updateGoalMutation.mutate(ov.goalDraft.trim())
+  ov.closeEditGoal()
+}
+
+function submitSchedule() {
+  const valid = ov.scheduleForm.title.trim() && (ov.scheduleForm.repeat === 'weekly' || ov.scheduleForm.date)
+  if (!valid) {
+    ov.scheduleTouched = true
+    return
+  }
+  const day =
+    ov.scheduleForm.repeat === 'weekly'
+      ? '每' + ['日', '一', '二', '三', '四', '五', '六'][Number(ov.scheduleForm.weekday)]
+      : (ov.scheduleForm.date.split('-')[2] ?? ov.scheduleForm.date)
+  createScheduleMutation.mutate({ day, title: ov.scheduleForm.title.trim() })
+  ov.scheduleModalOpen = false
+}
+
+function submitFocusTask() {
+  if (!ov.focusForm.title.trim()) {
+    ov.focusTouched = true
+    return
+  }
+  const opt = MODULE_OPTIONS.find((o) => o.value === ov.focusForm.module)
+  createFocusTaskMutation.mutate({
+    title: ov.focusForm.title.trim(),
+    module: ov.focusForm.module || 'overview',
+    moduleLabel: opt?.label ?? '計畫中心',
+    progress: Number(ov.focusForm.progress) || 0,
+    due: ov.focusForm.due,
+  })
+  ov.focusModalOpen = false
+}
+
+function submitGrowthGoal() {
+  if (!ov.growthGoalForm.title.trim()) {
+    ov.growthGoalTouched = true
+    return
+  }
+  createGrowthGoalMutation.mutate({
+    title: ov.growthGoalForm.title.trim(),
+    sub: ov.growthGoalForm.sub.trim(),
+    badgeText: ov.growthGoalForm.badgeText.trim(),
+  })
+  ov.growthGoalModalOpen = false
+}
+
+function submitAchievement() {
+  if (!ov.achievementForm.text.trim()) {
+    ov.achievementTouched = true
+    return
+  }
+  createAchievementMutation.mutate(ov.achievementForm.text.trim())
+  ov.achievementModalOpen = false
 }
 
 const totalGoalCount = computed(() => core.plans.length)
@@ -103,16 +181,16 @@ const monthTopMilestone = computed(() =>
                 <button
                   type="button"
                   class="bg-brand-primary text-white text-xs font-medium px-4 py-2 rounded-control cursor-pointer whitespace-nowrap"
-                  @click="ov.saveGoal()"
+                  @click="saveGoal"
                 >
                   儲存
                 </button>
               </div>
               <div v-else class="flex items-center gap-2.5 mt-1">
-                <p class="m-0 font-medium text-ink-900" style="font-size: 17px">{{ ov.goalTitle }}</p>
+                <p class="m-0 font-medium text-ink-900" style="font-size: 17px">{{ goalTitle || '尚未設定目標，點擊編輯新增' }}</p>
                 <span
                   class="cursor-pointer flex items-center gap-1 text-xs text-brand-primary shrink-0"
-                  @click="ov.startEditGoal()"
+                  @click="ov.startEditGoal(goalTitle)"
                 >
                   <Icon name="edit" :size="13" />編輯
                 </span>
@@ -234,9 +312,9 @@ const monthTopMilestone = computed(() =>
             <span class="text-xs text-brand-primary font-medium cursor-pointer whitespace-nowrap" @click="ov.openAllSchedules()">全部 →</span>
           </span>
         </div>
-        <p v-if="ov.schedules.length === 0" class="mt-2 text-xs text-sand-400">尚未新增行程</p>
+        <p v-if="schedules.length === 0" class="mt-2 text-xs text-sand-400">尚未新增行程</p>
         <div v-else class="flex flex-col gap-1.5 mt-2">
-          <div v-for="sc in ov.schedules" :key="sc.id" class="flex items-center gap-2">
+          <div v-for="sc in schedules" :key="sc.id" class="flex items-center gap-2">
             <div class="w-7 h-7 rounded-lg bg-cream-100 flex items-center justify-center shrink-0">
               <span class="text-xs font-medium text-clay-500">{{ sc.day }}</span>
             </div>
@@ -246,11 +324,11 @@ const monthTopMilestone = computed(() =>
             <span
               class="cursor-pointer shrink-0"
               :class="sc.reminded ? 'text-brand-primary' : 'text-sand-400'"
-              @click="ov.toggleReminded(sc.id)"
+              @click="toggleScheduleMutation.mutate(sc.id)"
             >
               <Icon name="checkCircle" :size="14" />
             </span>
-            <span class="cursor-pointer text-danger shrink-0" @click="ov.deleteSchedule(sc.id)">
+            <span class="cursor-pointer text-danger shrink-0" @click="deleteScheduleMutation.mutate(sc.id)">
               <Icon name="trash" :size="13" />
             </span>
           </div>
@@ -365,7 +443,7 @@ const monthTopMilestone = computed(() =>
         <span class="text-sm font-medium text-ink-800">當前專注任務</span>
         <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="ov.openAllFocusTasks()">查看全部 →</span>
       </div>
-      <div v-if="ov.focusTasks.length === 0" class="rounded-card p-6.5 text-center text-sand-400 bg-cream-50 border border-cream-150">
+      <div v-if="focusTasks.length === 0" class="rounded-card p-6.5 text-center text-sand-400 bg-cream-50 border border-cream-150">
         <Icon name="plusCircle" :size="30" class="mx-auto" />
         <p class="mt-2.5 mb-0.5 text-sm font-medium text-sand-600">尚未建立任何專注任務</p>
         <p class="my-0 text-xs text-sand-400">新增第一個任務，開始追蹤你的計畫</p>
@@ -378,13 +456,13 @@ const monthTopMilestone = computed(() =>
         </button>
       </div>
       <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        <div v-for="ft in ov.focusTasks" :key="ft.id" class="rounded-card p-4 bg-cream-50 border border-cream-150">
+        <div v-for="ft in focusTasks" :key="ft.id" class="rounded-card p-4 bg-cream-50 border border-cream-150">
           <span class="text-xs px-2 py-0.5 rounded-full" :class="[ft.tagBg, ft.tagCol]">{{ ft.moduleLabel }}</span>
           <div class="text-sm font-medium text-ink-900 mt-2">{{ ft.title }}</div>
           <div class="h-1.5 rounded-full bg-cream-150 mt-2.5"><div class="h-full rounded-full bg-clay-500" :style="{ width: ft.progress + '%' }" /></div>
           <div class="flex items-center justify-between mt-1.5">
             <span class="flex items-center gap-1 text-xs text-sand-500"><Icon name="calendar" :size="11" />{{ ft.due }}</span>
-            <span class="cursor-pointer text-danger" @click="ov.deleteFocusTask(ft.id)"><Icon name="trash" :size="13" /></span>
+            <span class="cursor-pointer text-danger" @click="deleteFocusTaskMutation.mutate(ft.id)"><Icon name="trash" :size="13" /></span>
           </div>
         </div>
       </div>
@@ -396,11 +474,11 @@ const monthTopMilestone = computed(() =>
         <span class="text-sm font-medium text-ink-800">成長目標</span>
         <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="ov.openGrowthGoalModal()">＋ 新增</span>
       </div>
-      <div v-if="ov.growthGoals.length === 0" class="rounded-card p-5 text-center text-sand-400 bg-cream-50 border border-cream-150">
+      <div v-if="growthGoals.length === 0" class="rounded-card p-5 text-center text-sand-400 bg-cream-50 border border-cream-150">
         <p class="m-0 text-xs font-medium text-sand-600">尚未建立成長目標</p>
       </div>
       <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        <div v-for="g in ov.growthGoals" :key="g.id" class="rounded-card p-4 flex items-center gap-3 bg-cream-50 border border-cream-150">
+        <div v-for="g in growthGoals" :key="g.id" class="rounded-card p-4 flex items-center gap-3 bg-cream-50 border border-cream-150">
           <span v-if="g.badgeText" class="w-9 h-9 rounded-xl bg-cream-100 flex items-center justify-center text-xs font-medium text-clay-500 shrink-0">
             {{ g.badgeText }}
           </span>
@@ -408,7 +486,7 @@ const monthTopMilestone = computed(() =>
             <div class="text-sm font-medium text-ink-900">{{ g.title }}</div>
             <div v-if="g.sub" class="text-xs text-sand-500 mt-0.5">{{ g.sub }}</div>
           </div>
-          <span class="cursor-pointer text-danger shrink-0" @click="ov.deleteGrowthGoal(g.id)"><Icon name="trash" :size="13" /></span>
+          <span class="cursor-pointer text-danger shrink-0" @click="deleteGrowthGoalMutation.mutate(g.id)"><Icon name="trash" :size="13" /></span>
         </div>
       </div>
     </div>
@@ -419,13 +497,13 @@ const monthTopMilestone = computed(() =>
         <span class="text-sm font-medium text-ink-800">今日小成就</span>
         <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="ov.openAchievementModal()">＋ 新增</span>
       </div>
-      <div v-if="ov.achievements.length === 0" class="rounded-card p-5 text-center text-sand-400 bg-cream-50 border border-cream-150">
+      <div v-if="achievements.length === 0" class="rounded-card p-5 text-center text-sand-400 bg-cream-50 border border-cream-150">
         <p class="m-0 text-xs font-medium text-sand-600">今天還沒有記錄任何小成就</p>
       </div>
       <div v-else class="flex flex-col gap-2">
-        <div v-for="a in ov.achievements" :key="a.id" class="rounded-card px-4 py-2.5 flex items-center gap-2.5 bg-cream-50 border border-cream-150">
+        <div v-for="a in achievements" :key="a.id" class="rounded-card px-4 py-2.5 flex items-center gap-2.5 bg-cream-50 border border-cream-150">
           <span class="flex-1 text-sm text-ink-900">{{ a.text }}</span>
-          <span class="cursor-pointer text-danger shrink-0" @click="ov.deleteAchievement(a.id)"><Icon name="trash" :size="13" /></span>
+          <span class="cursor-pointer text-danger shrink-0" @click="deleteAchievementMutation.mutate(a.id)"><Icon name="trash" :size="13" /></span>
         </div>
       </div>
     </div>
@@ -507,7 +585,7 @@ const monthTopMilestone = computed(() =>
       <p v-if="ov.focusTouched && !ov.focusForm.title.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫任務內容</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="ov.closeFocusTaskModal()">取消</button>
-        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="ov.saveFocusTask()">儲存</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="submitFocusTask">儲存</button>
       </div>
     </Modal>
 
@@ -551,82 +629,6 @@ const monthTopMilestone = computed(() =>
       </div>
     </Modal>
 
-    <!-- Plan modal -->
-    <Modal v-if="core.planModalOpen" title="新增計畫" :width="420" @close="core.closePlanModal()">
-      <label class="text-xs font-medium text-ink-700">計畫名稱</label>
-      <input
-        v-model="core.planForm.title"
-        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
-        :class="core.planTouched && !core.planForm.title.trim() ? 'border-coral' : 'border-sand-200'"
-      />
-      <label class="text-xs font-medium text-ink-700">副標</label>
-      <input v-model="core.planForm.sub" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-      <label class="text-xs font-medium text-ink-700">計畫範本</label>
-      <div class="flex flex-col gap-2 mt-1.5 mb-3.5">
-        <div
-          v-for="tpl in PLAN_TEMPLATE_CARDS"
-          :key="tpl.kind"
-          class="flex items-center gap-2.5 px-3.5 py-3 rounded-control cursor-pointer border-[1.5px]"
-          :class="core.planForm.template === tpl.kind ? 'bg-success-bg-soft border-brand-primary' : 'bg-cream-75 border-cream-150'"
-          @click="core.selectPlanTemplate(tpl.kind)"
-        >
-          <Icon :name="tpl.icon" :size="20" :class="core.planForm.template === tpl.kind ? 'text-brand-primary' : 'text-sand-400'" />
-          <div class="flex-1">
-            <div class="text-sm font-medium text-ink-900">{{ tpl.label }}</div>
-            <div class="text-xs text-sand-500 mt-0.5">{{ tpl.desc }}</div>
-          </div>
-          <span
-            class="w-4.5 h-4.5 rounded-full border-2 shrink-0"
-            :class="core.planForm.template === tpl.kind ? 'border-brand-primary bg-brand-primary' : 'border-sand-275 bg-transparent'"
-          />
-        </div>
-      </div>
-      <label class="text-xs font-medium text-ink-700">執行星期（可複選）</label>
-      <div class="flex gap-1.5 mt-1.5 mb-3.5">
-        <span
-          v-for="(w, i) in weekdayShort"
-          :key="i"
-          class="flex-1 text-center py-2 rounded-control text-xs font-medium cursor-pointer"
-          :class="core.planForm.weekdays.includes(i) ? 'bg-brand-primary text-white' : 'bg-cream-100 text-ink-700'"
-          @click="core.togglePlanWeekday(i)"
-        >
-          {{ w }}
-        </span>
-      </div>
-      <div class="flex gap-3 mb-3.5">
-        <div class="flex-1">
-          <label class="text-xs font-medium text-ink-700">開始時間</label>
-          <input v-model="core.planForm.startTime" type="time" class="w-full mt-1.5 px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-        </div>
-        <div class="flex-1">
-          <label class="text-xs font-medium text-ink-700">結束時間</label>
-          <input v-model="core.planForm.endTime" type="time" class="w-full mt-1.5 px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-        </div>
-      </div>
-      <label class="text-xs font-medium text-ink-700">預計多久完成</label>
-      <select v-model="core.planForm.months" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none">
-        <option value="1">1 個月</option>
-        <option value="2">2 個月</option>
-        <option value="3">3 個月</option>
-        <option value="6">6 個月</option>
-        <option value="12">12 個月</option>
-      </select>
-      <p class="m-0 mb-3.5 text-xs text-sand-400">完成度將依每日打卡自動計算，無須手動設定</p>
-      <p v-if="core.planTouched && !core.planForm.title.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫計畫名稱</p>
-      <p v-if="core.planError" class="text-danger text-xs mb-2.5">⚠ {{ core.planError }}</p>
-      <div class="flex gap-2.5 mt-2">
-        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closePlanModal()">取消</button>
-        <button
-          type="button"
-          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="core.planSaving"
-          @click="core.savePlan()"
-        >
-          {{ core.planSaving ? '新增中…' : '新增' }}
-        </button>
-      </div>
-    </Modal>
-
     <!-- Schedule modal -->
     <Modal v-if="ov.scheduleModalOpen" title="新增行程" :width="380" @close="ov.closeScheduleModal()">
       <label class="text-xs font-medium text-ink-700">重複頻率</label>
@@ -665,20 +667,20 @@ const monthTopMilestone = computed(() =>
       <p v-if="ov.scheduleTouched" class="text-danger text-xs mb-2.5">⚠ 請填寫日期與事件名稱</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="ov.closeScheduleModal()">取消</button>
-        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="ov.saveSchedule()">儲存</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="submitSchedule">儲存</button>
       </div>
     </Modal>
 
     <!-- All schedules modal -->
     <Modal v-if="ov.allSchedulesModalOpen" title="全部行程提醒" :width="420" @close="ov.closeAllSchedules()">
       <div class="flex flex-col gap-2.5">
-        <div v-for="sc in ov.schedules" :key="sc.id" class="rounded-card p-3.5 flex items-center gap-3.5 bg-cream-100">
+        <div v-for="sc in schedules" :key="sc.id" class="rounded-card p-3.5 flex items-center gap-3.5 bg-cream-100">
           <div class="w-11 h-11 rounded-xl bg-cream-50 flex items-center justify-center text-sm font-medium text-clay-500 shrink-0">{{ sc.day }}</div>
           <div class="flex-1 min-w-0 text-sm font-medium text-ink-900">{{ sc.title }}</div>
-          <span class="cursor-pointer shrink-0" :class="sc.reminded ? 'text-brand-primary' : 'text-sand-400'" @click="ov.toggleReminded(sc.id)">
+          <span class="cursor-pointer shrink-0" :class="sc.reminded ? 'text-brand-primary' : 'text-sand-400'" @click="toggleScheduleMutation.mutate(sc.id)">
             <Icon name="checkCircle" :size="14" />
           </span>
-          <span class="cursor-pointer text-danger shrink-0" @click="ov.deleteSchedule(sc.id)"><Icon name="trash" :size="13" /></span>
+          <span class="cursor-pointer text-danger shrink-0" @click="deleteScheduleMutation.mutate(sc.id)"><Icon name="trash" :size="13" /></span>
         </div>
       </div>
     </Modal>
@@ -705,7 +707,7 @@ const monthTopMilestone = computed(() =>
     <!-- All focus tasks modal -->
     <Modal v-if="ov.allFocusTasksModalOpen" title="當前專注任務" :width="460" @close="ov.closeAllFocusTasks()">
       <div class="flex flex-col gap-2.5">
-        <div v-for="ft in ov.focusTasks" :key="ft.id" class="rounded-card p-3.5 bg-cream-100">
+        <div v-for="ft in focusTasks" :key="ft.id" class="rounded-card p-3.5 bg-cream-100">
           <span class="text-xs px-2 py-0.5 rounded-full" :class="[ft.tagBg, ft.tagCol]">{{ ft.moduleLabel }}</span>
           <div class="text-sm font-medium text-ink-900 mt-2">{{ ft.title }}</div>
           <div class="h-1.5 rounded-full bg-cream-150 mt-2.5"><div class="h-full rounded-full bg-clay-500" :style="{ width: ft.progress + '%' }" /></div>
@@ -759,7 +761,7 @@ const monthTopMilestone = computed(() =>
       <p v-if="ov.growthGoalTouched && !ov.growthGoalForm.title.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫目標名稱</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="ov.closeGrowthGoalModal()">取消</button>
-        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="ov.saveGrowthGoal()">儲存</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="submitGrowthGoal">儲存</button>
       </div>
     </Modal>
 
@@ -775,7 +777,7 @@ const monthTopMilestone = computed(() =>
       <p v-if="ov.achievementTouched && !ov.achievementForm.text.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫內容</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="ov.closeAchievementModal()">取消</button>
-        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="ov.saveAchievement()">儲存</button>
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="submitAchievement">儲存</button>
       </div>
     </Modal>
   </div>

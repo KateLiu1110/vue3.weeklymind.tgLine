@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
 import { verifyAuthToken } from '../lib/jwt.js'
+import { getUnlockedKeys } from '../lib/achievements.js'
 
 declare global {
   namespace Express {
@@ -23,5 +24,17 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
     next()
   } catch {
     next(new ApiBusinessError('UNAUTHORIZED', '登入已過期，請重新登入', 401))
+  }
+}
+
+/** 掛在 requireAuth 之後：這個工具還沒解鎖就擋掉，跟側邊欄鎖定 UI 是同一組判斷（見 lib/achievements.ts）。 */
+export function requireUnlocked(key: string) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    const keys = await getUnlockedKeys(req.userId)
+    if (!keys.includes(key)) {
+      next(new ApiBusinessError('FEATURE_LOCKED', '這個功能還沒解鎖', 403))
+      return
+    }
+    next()
   }
 }

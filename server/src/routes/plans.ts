@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
 import { requireAuth } from '../middleware/auth.js'
+import { checkAndUnlockAchievements } from '../lib/achievements.js'
 
 export const plansRouter = Router()
 plansRouter.use(requireAuth)
@@ -33,7 +34,24 @@ plansRouter.post('/', async (req, res, next) => {
   try {
     const body = planInput.parse(req.body)
     const plan = await prisma.plan.create({ data: { ...body, userId: req.userId } })
+    await checkAndUnlockAchievements(req.userId)
     res.status(201).json({ ok: true, data: plan })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// 「今日打卡」：ExecView 的打卡按鈕，累積次數也是覆盤中心解鎖條件之一（見 lib/achievements.ts）。
+plansRouter.patch('/:id/checkin', async (req, res, next) => {
+  try {
+    const exists = await prisma.plan.findUnique({ where: { id: req.params.id } })
+    if (!exists || exists.userId !== req.userId) throw ApiBusinessError.notFound('Plan')
+    const plan = await prisma.plan.update({
+      where: { id: req.params.id },
+      data: { checkinsDone: { increment: 1 } },
+    })
+    await checkAndUnlockAchievements(req.userId)
+    res.json({ ok: true, data: plan })
   } catch (err) {
     next(err)
   }

@@ -12,23 +12,31 @@
 src/
 ├── api/
 │   ├── client/
-│   │   ├── plans.ts
-│   │   ├── milestones.ts
+│   │   ├── plans.ts / milestones.ts / dailyTasks.ts
+│   │   ├── toeic.ts / sport.ts / portfolio.ts / links.ts / retro.ts
+│   │   ├── achievements.ts    # 解鎖狀態查詢
 │   │   ├── auth.ts            # fetchMe()（手機驗證碼那兩支已從前端移除，見下方方式三）
-│   │   ├── liffAuth.ts        # LIFF QR Code 登入（已建好，登入頁未連結，見下方方式二備註）
-│   │   └── dailyTasks.ts      # 臨時待辦事項
+│   │   └── liffAuth.ts        # LIFF QR Code 登入（已建好，登入頁未連結，見下方方式二備註）
 │   ├── transport/
 │   │   ├── axios.ts           # Axios 實例，自動帶 Authorization: Bearer <JWT>
 │   │   └── apiBusinessError.ts
 │   └── queryKeys.ts
-├── composables/
+├── composables/               # 每個資源一組 use<X>()（查詢）+ use<X>Mutations()（新增/刪除）
 │   ├── usePlans.ts / useMilestones.ts / useDailyTasks.ts
+│   ├── useToeic.ts / useSport.ts / usePortfolioBoard.ts / useLinks.ts / useRetro.ts
+│   └── useAchievements.ts
 ├── lib/
 │   └── authToken.ts           # JWT 存取 localStorage
 ├── stores/
-│   └── auth.ts                # 目前登入使用者 + JWT
+│   ├── auth.ts                 # 登入使用者 + JWT + 訪客動作守門員（requireLogin）
+│   ├── core.ts                  # 計畫/里程碑/自訂模組 + 各 Modal 的 UI 狀態
+│   └── toeic.ts / sport.ts / portfolio.ts / links.ts / retro.ts
+│       # 這 5 個 store 現在只留 Modal/表單的 UI 狀態，資料本體改由對應 composable 提供
+│       # （Pinia＝UI 狀態、TanStack Query＝伺服器狀態，回歸最初的架構分工）
+├── components/common/
+│   └── LockedFeature.vue      # 「連結收藏」「覆盤中心」未解鎖時顯示的鎖定畫面
 ├── views/auth/
-│   ├── LoginView.vue          # 現在只有一個「使用 LINE 帳號登入」按鈕（RegisterView.vue 已刪除）
+│   ├── LoginView.vue          # 只有一個「使用 LINE 帳號登入」按鈕（RegisterView.vue 已刪除）
 │   ├── LineCallbackView.vue   # LINE Login OAuth 授權完成後導回的頁面（/login/line-callback）
 │   └── LiffLoginView.vue      # 手機掃 QR Code 後開啟的 LIFF 頁面（保留，登入頁未連結）
 └── types/api.ts
@@ -36,19 +44,23 @@ src/
 server/                         # Express + Prisma + PostgreSQL（Docker 本機開發）
 ├── src/
 │   ├── routes/
-│   │   ├── plans.ts / milestones.ts   # 都需要登入，依 userId 過濾
+│   │   ├── plans.ts / milestones.ts / dailyTasks.ts   # 都需要登入，依 userId 過濾
+│   │   ├── toeic.ts / sport.ts / portfolio.ts          # 同上
+│   │   ├── links.ts / retro.ts                          # 需要登入 + 已解鎖（requireUnlocked）
+│   │   ├── achievements.ts                              # GET 目前已解鎖的項目
 │   │   ├── auth.ts                    # send-code/verify-code（保留但前端未呼叫）+ GET /me
 │   │   ├── lineLogin.ts               # LINE Login OAuth（登入頁「使用 LINE 帳號登入」按鈕）
 │   │   ├── liffAuth.ts                # LIFF QR Code 登入 session（保留，登入頁未連結）
-│   │   ├── lineWebhook.ts             # LINE Messaging API webhook
-│   │   └── dailyTasks.ts              # 臨時待辦事項 CRUD
+│   │   └── lineWebhook.ts             # LINE Messaging API webhook
 │   ├── services/
 │   │   ├── line.ts            # LINE reply/push + Flex Message 組裝（每日任務卡）
 │   │   ├── ai.ts               # 規則式意圖判斷（之後要換 Claude API 的地方）
 │   │   ├── linkClassifier.ts   # 連結平台判斷（ig/threads/fb/other）
 │   │   └── reminder.ts         # node-cron 每日推播排程
-│   ├── middleware/auth.ts      # 解析 JWT，掛在需要登入的路由上
-│   └── lib/jwt.ts
+│   ├── middleware/auth.ts      # requireAuth（解析 JWT）+ requireUnlocked（解鎖檢查）
+│   └── lib/
+│       ├── jwt.ts
+│       └── achievements.ts     # 解鎖條件判斷（見下方§七）
 └── prisma/schema.prisma
 ```
 
@@ -60,25 +72,37 @@ server/                         # Express + Prisma + PostgreSQL（Docker 本機�
 
 **本機開發**：PostgreSQL 跑在 Docker（見專案根目錄 `docker-compose.yml`），`docker compose up -d` 啟動。連線字串在 `server/.env` 的 `DATABASE_URL`。
 
-> 本機常見雷：這台機器上可能同時有原生安裝的 PostgreSQL 服務佔用 5432/5433 等常見 port，`docker-compose.yml` 目前把 container 對外開在 **5434**，換一台機器測試前，先確認這個 port 沒被佔用（`docker compose ps` 確認 container 真的是 `Up` 狀態，不是被別的服務擋住）。
+> 本機常見雷：這台機器上同時有原生安裝的 PostgreSQL 服務佔用 5432/5433，`docker-compose.yml` 把 container 對外開在 **5434**；也發生過 Docker Desktop 整個沒在跑（不是容器停了）的狀況，兩種都會讓後端連不上資料庫，排解方式見 [LOGIN_操作手冊.md](LOGIN_操作手冊.md) 常見問題。
 
 Schema（`server/prisma/schema.prisma`）：
 
-- `User` — `phone`、`lineUserId`（皆可為 null，兩種登入方式共用同一張表）
-- `Plan` / `Milestone` — 都有 `userId` 外鍵，每個帳號的資料互相隔離
-- `LinkRule` / `SavedLink` — LINE 傳連結時的自動歸類規則與收藏紀錄
-- `SportLog` — LINE 傳「跑了5公里」之類訊息時的運動打卡
-- `ToeicProgress` — 多益每日打卡（一個帳號一天一筆）
-- `Project` — 作品集看板專案（LINE 打卡用；跟前端目前 `portfolio.ts` store 的看板資料是兩個獨立來源，還沒整合）
-- `DailyTask` — 一般學習/生活打卡紀錄，也是「臨時待辦事項」功能的資料表
+| Model | 用途 |
+| --- | --- |
+| `User` | `phone`、`lineUserId` 皆可為 null，三種登入方式共用同一張表 |
+| `Plan` / `Milestone` | 計畫管理頁核心資料，都有 `userId` 外鍵，帳號間互相隔離 |
+| `LinkRule` / `SavedLink` | 連結收藏：`SavedLink` 同時是 LINE 自動收藏與網頁手動新增的共用表 |
+| `SportLog` | LINE 打卡紀錄（跑了幾公里等），跟下面 `SportCategoryTab`/`SportTodoItem` 是不同概念 |
+| `ToeicProgress` | LINE 每日打卡（背單字/閱讀測驗等 boolean），跟下面 `ToeicProfile` 是不同概念 |
+| `Project` | 作品集看板卡片，LINE 打卡（`dailyPct`）與網頁拖曳看板（`name`/`caption`/`status`）共用 |
+| `DailyTask` | 一般學習/生活打卡，也是「臨時待辦事項」的資料表 |
+| `ToeicProfile`（單筆）/`ToeicExamDate`/`ToeicTaskItem` | 「多益英文」頁面內容 |
+| `SportCategoryTab`/`SportTodoItem` | 「運動」頁面的自訂分類分頁 + 待辦清單 |
+| `RetroGoal` | 「覆盤中心」的長期目標卡片 |
+| `Achievement` | 解鎖紀錄（`userId` + `key`），見下方§七 |
 
 正式上線：把 `DATABASE_URL` 換成雲端 Postgres（Supabase/Railway）連線字串即可，schema 不用改（已經是 `provider = "postgresql"`）。
 
 ---
 
-## 三、登入
+## 三、登入 + 訪客瀏覽模式
 
 登入頁現在**只有 LINE 一種入口**（方式二）；方式一是 LINE 官方帳號加好友時自動觸發，不用畫面。方式三（手機驗證碼）的後端 API 還在，但前端已經拿掉，純粹備用。
+
+### 訪客瀏覽模式 ✅
+
+`/app/*` 底下**不需要登入就能進去**（路由守衛已移除），沒有 token 的訪客可以自由瀏覽整個後台介面，但：
+- 所有需要登入的 API 查詢都用 `enabled: () => auth.isLoggedIn` 擋住，不會真的發請求，畫面自然呈現空狀態（不是後端回應空陣列，是前端根本沒問）
+- 任何新增/刪除等操作（`core.openPlanModal()`、`core.removePlan()`、`core.deleteCustomModule()`……）都先呼叫 `auth.requireLogin()`：已登入才放行，訪客會跳出「請先登入」Modal（[src/stores/auth.ts](src/stores/auth.ts) 的 `requireLogin()`），不會真的打到後端（後端 `requireAuth` middleware 本來就會擋 401，前端這層純粹是提早給使用者明確的提示，而不是讓他們填完表單才發現不能送出）
 
 ### 方式一：LINE 加好友即完成註冊＋登入 ✅
 
@@ -122,7 +146,7 @@ LINE 導回 GET /api/auth/line/callback?code=...&state=...
 
 ### 方式三：手機號碼＋驗證碼（後端保留，前端已移除）
 
-原本是給還沒加 LINE 好友、想先體驗 demo 的人用，`server/src/routes/auth.ts` 的 `send-code`/`verify-code` 都還在（驗證碼沒接真實簡訊商，只是印在後端 console），但登入頁跟註冊頁都已經拿掉了，改成只用 LINE 登入。示範帳號（`0912-345-678`）的種子資料因此暫時沒有畫面入口，見 [LOGIN_操作手冊.md](LOGIN_操作手冊.md)。
+原本是給還沒加 LINE 好友、想先體驗 demo 的人用，`server/src/routes/auth.ts` 的 `send-code`/`verify-code` 都還在（驗證碼沒接真實簡訊商，只是印在後端 console），但登入頁跟註冊頁都已經拿掉了，改成只用 LINE 登入 + 訪客瀏覽模式。示範帳號（`0912-345-678`）的種子資料因此暫時沒有畫面入口，見 [LOGIN_操作手冊.md](LOGIN_操作手冊.md)。
 
 ---
 
@@ -138,6 +162,8 @@ LINE 導回 GET /api/auth/line/callback?code=...&state=...
 | 「學了 Vue」「看了 React」等 | 關鍵字 | 存進 `DailyTask` |
 | 「任務」 | 精確比對 | 回傳當天的每日任務 CheckList（Flex Message，即時讀 `ToeicProgress`/`Project`） |
 | 其他文字 | fallback | 隨機回覆聊天訊息 |
+
+每次訊息/postback 處理完都會呼叫 `checkAndUnlockAchievements(userId)`（見§七），LINE 端的打卡活動也會計入覆盤中心的解鎖條件。
 
 `services/ai.ts` 的 `detectIntent()` 目前是規則式（正規表示式關鍵字比對），**尚未接 Claude API**——這是刻意的：先把「訊息 → 結構化資料 → 存 DB → 回覆」整條路徑打通，之後只要把 `detectIntent()` 的實作換成呼叫 Claude API，呼叫端（webhook）完全不用改，因為回傳的 `Intent` 型別已經是 provider-agnostic 的設計。
 
@@ -156,17 +182,22 @@ LINE 導回 GET /api/auth/line/callback?code=...&state=...
 
 ---
 
-## 七、解鎖機制（規劃中，尚未實作）
+## 七、解鎖機制 ✅
 
-取代原本「收藏網址」的構想，改成**完成特定行為解鎖功能**：
+取代原本「收藏網址」的構想，改成**完成特定行為解鎖功能**——鎖的是「工具」分類底下的兩個項目：
 
-| 觸發行為 | 解鎖項目 |
-| --- | --- |
-| 連續打卡 7 天 | 進階報表（覆盤中心的長期趨勢圖） |
-| 新增第一個計畫 | 執行中心 |
-| 綁定 LINE 帳號 | 每日/每週推播提醒 |
+| 工具 | 解鎖條件 | 判斷邏輯位置 |
+| --- | --- | --- |
+| 連結收藏 | 新增第一個計畫（`Plan` 數量 ≥ 1） | `server/src/lib/achievements.ts` |
+| 覆盤中心 | 累積打卡次數達到 5 次（網頁「今日打卡」+ LINE 運動/多益/學習打卡都算） | 同上 |
 
-需要新增 `Achievement` model（`userId`、`key`、`unlockedAt`）與對應的判斷邏輯，目前 schema 還沒加這張表。
+實作方式：`Achievement` 表記錄 `userId` + `key`（`links_unlocked` / `retro_unlocked`）。`checkAndUnlockAchievements(userId)` 在「新增計畫」「今日打卡」「LINE 訊息處理完畢」這幾個時機點被呼叫，符合條件就寫一筆解鎖紀錄（已解鎖的不會重複判斷）。
+
+前端：
+- `GET /api/achievements` 回傳目前已解鎖的 key 列表，側邊欄「連結收藏」「覆盤中心」用這個資料決定要不要顯示鎖頭圖示（[src/components/common/LockedFeature.vue](src/components/common/LockedFeature.vue) 是點進未解鎖頁面時看到的鎖定畫面）
+- 後端也有對應防護：`links.ts`/`retro.ts` 兩個 router 都掛了 `requireUnlocked(key)` middleware，未解鎖時 API 直接回 403 `FEATURE_LOCKED`，不是只有前端擋——前端拿到這個錯誤碼就切換成鎖定畫面
+
+> 解鎖門檻（新增第一個計畫／5 次打卡）是這次沒有明確指定時的合理預設，之後想調整只要改 `server/src/lib/achievements.ts` 裡的門檻值或判斷邏輯。
 
 ---
 
@@ -198,8 +229,8 @@ Supabase 或 Railway 附掛的 PostgreSQL
 ## 九、還沒做的部分（依需不需要外部憑證排序）
 
 1. **Claude API 待辦解析**（需要 Claude API Key）：把 `services/ai.ts` 的 `detectIntent()` 從規則式換成真的呼叫 Claude API。
-2. **解鎖機制**（不需外部憑證，隨時可做）：新增 `Achievement` model + 判斷邏輯。
-3. **21:00/週報/月報推播**（不需外部憑證）：`reminder.ts` 目前只有每日任務卡一種排程，其餘規劃的推播時段還沒實作。
+2. **21:00/週報/月報推播**（不需外部憑證）：`reminder.ts` 目前只有每日任務卡一種排程，其餘規劃的推播時段還沒實作。
+3. **覆盤中心的「本週達成率變化」「各分類達成率佔比」兩組圖表**（不需外部憑證，但需要設計怎麼從打卡紀錄算出分類佔比）：目前還是固定示意資料（`src/stores/retro.ts` 的 `weekBars`/`categoryShares`），只有「各項目標進度表」是真實資料。
 4. **LINE Login 實際啟用**（需要 LINE Developers Console 建立 LINE Login Channel）：架構已完成，只差申請與環境變數，本機可測（支援 http://localhost）。
 5. **LIFF 實際啟用 + 接回登入頁**（需要 LINE Developers Console 建立 LIFF App + https 網域）：架構已完成，目前登入頁沒有入口，之後若要支援「手機 LINE 內連動登入」再接回去。
 6. **正式部署**（需要 Railway/Supabase/Vercel 帳號）：本機到雲端的落差主要是連線字串與網域。

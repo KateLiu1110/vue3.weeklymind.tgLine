@@ -28,16 +28,29 @@ model User {
   avatarUrl   String?
   botPlatform String   @default("line")
   botLang     String   @default("zh")
+  // Dashboard 首頁 hero 卡片的長期目標句子，一個使用者一筆，故直接放 User 而非另開表。
+  goalTitle   String   @default("")
   createdAt   DateTime @default(now())
 
-  plans          Plan[]
-  milestones     Milestone[]
-  linkRules      LinkRule[]
-  savedLinks     SavedLink[]
-  sportLogs      SportLog[]
-  toeicProgress  ToeicProgress[]
-  projects       Project[]
-  dailyTasks     DailyTask[]
+  plans             Plan[]
+  milestones        Milestone[]
+  linkRules         LinkRule[]
+  savedLinks        SavedLink[]
+  sportLogs         SportLog[]
+  toeicProgress     ToeicProgress[]
+  projects          Project[]
+  dailyTasks        DailyTask[]
+  toeicProfile      ToeicProfile?
+  toeicExamDates    ToeicExamDate[]
+  toeicTaskItems    ToeicTaskItem[]
+  sportCategoryTabs SportCategoryTab[]
+  sportTodoItems    SportTodoItem[]
+  retroGoals        RetroGoal[]
+  achievements      Achievement[]
+  schedules         Schedule[]
+  focusTasks        FocusTask[]
+  growthGoals       GrowthGoal[]
+  smallAchievements SmallAchievement[]
 }
 
 model Plan {
@@ -92,11 +105,12 @@ model LinkRule {
   @@index([userId])
 }
 
-// LINE Bot: 使用者傳連結時自動收藏＋分類的紀錄，對應「連結收藏」頁面資料來源。
+// 連結收藏：LINE 傳連結自動收藏，也可以在網頁「連結收藏」頁手動新增，兩邊共用同一張表。
 model SavedLink {
   id        String       @id @default(cuid())
   userId    String
   user      User         @relation(fields: [userId], references: [id])
+  title     String       @default("")
   url       String
   platform  LinkPlatform
   category  String
@@ -133,12 +147,13 @@ model ToeicProgress {
   @@unique([userId, date])
 }
 
-// LINE Bot: 作品集看板專案，對應「作品集看板」頁面的卡片資料來源。
+// 作品集看板專案：LINE 打卡（dailyPct）與網頁「作品集看板」（name/caption/status 三欄拖曳）共用。
 model Project {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   name      String
+  caption   String   @default("")
   status    String   @default("todo") // 'todo' | 'doing' | 'done'
   dailyPct  Int      @default(0)
   createdAt DateTime @default(now())
@@ -156,6 +171,151 @@ model DailyTask {
   source      String    @default("line") // 'line' | 'web'
   completedAt DateTime?
   createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// 「多益英文」頁面內容（一個使用者一筆）：目標、班表、模考分數、分數趨勢圖。
+// 跟 ToeicProgress（LINE 每日打卡 boolean）是不同用途，分開存。
+model ToeicProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  goalTitle     String   @default("多益目標 600 分")
+  goalDesc      String   @default("")
+  classSchedule String   @default("")
+  lastMockScore Int      @default(0)
+  targetScore   Int      @default(0)
+  scoreTrend    Json     @default("[]")
+  updatedAt     DateTime @updatedAt
+}
+
+model ToeicExamDate {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  date      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ToeicTaskItem {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  title      String
+  iconKey    String   @default("goal")
+  todayLabel String   @default("")
+  pct        Int      @default(0)
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+// 「運動」頁面的自訂分類分頁（例如「慢跑」「健身力量」），跟 SportLog（LINE 打卡紀錄）
+// 是不同概念：這裡是使用者自己排的待辦清單模板。
+model SportCategoryTab {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model SportTodoItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  category  String
+  name      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// 「覆盤中心」的長期目標卡片。
+model RetroGoal {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  start     String
+  totalDays Int?
+  color     String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// 解鎖機制：目前用來鎖「連結收藏」「覆盤中心」兩個工具，見 server/src/lib/achievements.ts。
+model Achievement {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  key        String
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, key])
+}
+
+// Dashboard 首頁「最新行程提醒」。
+model Schedule {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  day       String
+  title     String
+  reminded  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Dashboard 首頁「當前專注任務」。
+model FocusTask {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  module      String
+  moduleLabel String
+  tagBg       String   @default("bg-cream-175")
+  tagCol      String   @default("text-clay-500")
+  progress    Int      @default(0)
+  due         String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Dashboard 首頁「成長目標」。
+model GrowthGoal {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  sub       String   @default("")
+  badgeText String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Dashboard 首頁「今日小成就」。跟解鎖機制的 Achievement（App 內建工具解鎖）是不同概念，
+// 這裡是使用者自己隨手記的小成就清單，故分開命名避免混淆。
+model SmallAchievement {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  text      String
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }

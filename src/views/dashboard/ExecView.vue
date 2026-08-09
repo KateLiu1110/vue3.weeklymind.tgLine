@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore } from '@/stores/core'
 import { useExecStore } from '@/stores/exec'
+import { usePlanMutations } from '@/composables/usePlans'
+import { useAuthStore } from '@/stores/auth'
 import Icon from '@/components/common/Icon.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
 import Modal from '@/components/common/Modal.vue'
@@ -10,8 +13,16 @@ import { themeColor } from '@/lib/themeColor'
 
 const core = useCoreStore()
 const exec = useExecStore()
+const auth = useAuthStore()
+const { checkinPlanMutation } = usePlanMutations()
+
+function checkin(planId: string) {
+  if (!auth.requireLogin()) return
+  checkinPlanMutation.mutate(planId)
+}
 
 const hasExecData = computed(() => core.plans.length > 0 || exec.todayTasks.length > 0)
+const selectedDateLabel = computed(() => exec.weekDays.find((d) => d.index === exec.selectedDay)?.date ?? dayjs().format('M/D'))
 
 const monthlyReport = computed(() => [
   ...core.plans.map((p) => ({ month: '進行中', title: p.title, summary: p.sub, pct: p.pct })),
@@ -77,7 +88,17 @@ const stageBarOptions: ChartOptions<'bar'> = {
         <span class="flex items-center gap-1.5 text-sm font-medium text-ink-800">
           <Icon name="calendar" :size="17" class="text-brand-primary" />訓練計畫
         </span>
-        <span class="text-xs font-medium bg-cream-100 text-clay-500 px-2.5 py-1 rounded-full">第 {{ exec.weekNumber }} 週</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium bg-cream-100 text-clay-500 px-2.5 py-1 rounded-full">第 {{ exec.weekNumber }} 週</span>
+          <button
+            type="button"
+            class="w-6 h-6 rounded-full flex items-center justify-center text-sand-500 hover:bg-cream-100 cursor-pointer"
+            title="查看日期"
+            @click="exec.openDateModal()"
+          >
+            <Icon name="more" :size="16" />
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-7 gap-2">
@@ -178,13 +199,57 @@ const stageBarOptions: ChartOptions<'bar'> = {
           </div>
         </div>
       </div>
+
+      <div class="flex items-center justify-between mt-5 mb-3">
+        <span class="flex items-center gap-1.5 text-xs font-medium text-ink-800">
+          <Icon name="clock" :size="14" class="text-brand-primary" />今日時程表
+        </span>
+        <span class="text-xs text-sand-500">{{ selectedDateLabel }}</span>
+      </div>
+      <p v-if="exec.selectedDayScheduleBlocks.length === 0" class="m-0 text-xs text-sand-400">這天沒有排定時段的計畫</p>
+      <div v-else class="overflow-x-auto">
+        <div class="flex items-start min-w-max">
+          <template v-for="(b, i) in exec.selectedDayScheduleBlocks" :key="b.id">
+            <div
+              v-if="i > 0"
+              class="w-6 sm:w-10 h-px mt-[7px] shrink-0"
+              :class="exec.selectedDayScheduleBlocks[i - 1].status !== 'upcoming' ? 'bg-brand-primary' : 'bg-cream-150'"
+            />
+            <div class="flex flex-col items-center text-center w-24 shrink-0 cursor-pointer" @click="exec.toggleTask(b.key)">
+              <span
+                class="w-3.5 h-3.5 rounded-full border-2 shrink-0"
+                :class="[
+                  b.status === 'active' ? 'bg-brand-primary border-brand-primary' : '',
+                  b.status === 'done' ? 'bg-brand-primary border-brand-primary' : '',
+                  b.status === 'upcoming' ? 'bg-white border-sand-250' : '',
+                ]"
+              />
+              <div class="mt-2 text-xs" :class="b.status !== 'upcoming' ? 'text-brand-primary font-medium' : 'text-sand-500'">
+                {{ b.startTime }} - {{ b.endTime }}
+              </div>
+              <div
+                class="text-sm mt-0.5 px-0.5"
+                :class="[
+                  b.status === 'active' ? 'font-medium text-ink-900' : '',
+                  b.status === 'done' ? 'text-brand-primary' : '',
+                  b.status === 'upcoming' ? 'text-ink-700' : '',
+                ]"
+              >
+                {{ b.title }}
+              </div>
+              <span v-if="b.status === 'done'" class="inline-block mt-1 text-xs text-brand-primary">已完成</span>
+              <span v-else-if="b.status === 'active'" class="inline-block mt-1 text-xs text-clay-500 italic">進行中</span>
+            </div>
+          </template>
+        </div>
+      </div>
     </div>
 
     <div class="flex flex-col gap-3.5 min-w-0">
       <div class="bg-gold-accent rounded-card px-5 py-7 text-center relative overflow-hidden shadow">
         <div class="flex items-center justify-center gap-2">
           <Icon name="fire" :size="24" class="text-ink-amber" />
-          <span class="font-medium text-ink-amber whitespace-nowrap" style="font-size: 22px">連續 {{ core.streakDays }} 天</span>
+          <span class="font-medium text-ink-amber whitespace-nowrap" style="font-size: 22px">連續 {{ auth.isLoggedIn ? core.streakDays : 0 }} 天</span>
         </div>
         <p class="mt-2 text-sm font-medium text-ink-amber/80 leading-relaxed">保持運動與學習節奏！</p>
       </div>
@@ -203,9 +268,11 @@ const stageBarOptions: ChartOptions<'bar'> = {
           </div>
           <button
             type="button"
-            class="block w-full text-center mt-3 py-2.5 rounded-control bg-brand-primary text-white text-xs font-medium cursor-pointer"
+            class="block w-full text-center mt-3 py-2.5 rounded-control bg-brand-primary text-white text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="checkinPlanMutation.isPending.value"
+            @click="checkin(p.id)"
           >
-            ✓ 今日打卡
+            ✓ 今日打卡（已 {{ p.checkinsDone }} 次）
           </button>
         </div>
       </template>
@@ -260,6 +327,96 @@ const stageBarOptions: ChartOptions<'bar'> = {
         </div>
       </div>
       <p v-else class="m-0 text-xs text-sand-400">尚無計畫或里程碑資料，先到計劃管理新增</p>
+    </Modal>
+
+    <Modal v-if="exec.dateModalOpen" title="訓練計畫詳情" :width="640" @close="exec.closeDateModal()">
+      <div class="grid grid-cols-1 sm:grid-cols-[1.1fr_1fr] gap-5">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-ink-800">{{ exec.dateModalMonthLabel }}</span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                class="w-7 h-7 rounded-full flex items-center justify-center text-sand-500 hover:bg-cream-100 cursor-pointer"
+                @click="exec.prevDateModalMonth()"
+              >
+                <Icon name="chevronLeft" :size="16" />
+              </button>
+              <button
+                type="button"
+                class="w-7 h-7 rounded-full flex items-center justify-center text-sand-500 hover:bg-cream-100 cursor-pointer"
+                @click="exec.nextDateModalMonth()"
+              >
+                <Icon name="chevronRight" :size="16" />
+              </button>
+            </div>
+          </div>
+          <div class="grid grid-cols-7 gap-1 text-center text-xs text-sand-400 mb-1.5">
+            <span v-for="w in ['日', '一', '二', '三', '四', '五', '六']" :key="w">{{ w }}</span>
+          </div>
+          <div class="grid grid-cols-7 gap-1">
+            <button
+              v-for="d in exec.dateModalCalendarDays"
+              :key="d.key"
+              type="button"
+              class="aspect-square rounded-full text-xs flex items-center justify-center cursor-pointer"
+              :class="[
+                d.isSelected
+                  ? 'bg-brand-primary text-white font-medium'
+                  : d.isToday
+                    ? 'border border-brand-primary text-brand-primary font-medium'
+                    : d.inMonth
+                      ? 'text-ink-800 hover:bg-cream-100'
+                      : 'text-sand-250',
+              ]"
+              @click="exec.selectDateModalDate(d.dateStr)"
+            >
+              {{ d.day }}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-sm font-medium text-ink-800 mb-3">{{ exec.dateModalSelectedLabel }}</div>
+          <p v-if="exec.dateModalTasks.length === 0" class="m-0 text-xs text-sand-400">這天沒有排定的任務</p>
+          <div v-else class="flex flex-col gap-2.5">
+            <div
+              v-for="t in exec.dateModalTasks"
+              :key="t.id"
+              class="flex items-center gap-2.5 text-sm cursor-pointer"
+              :class="t.done ? 'text-sand-400' : 'text-ink-900'"
+              @click="exec.toggleTask(t.key)"
+            >
+              <span
+                class="w-4.5 h-4.5 rounded-md shrink-0 flex items-center justify-center text-white text-xs font-medium"
+                :class="t.done ? 'bg-brand-primary' : 'border-2 border-sand-250'"
+              >
+                <span v-if="t.done">✓</span>
+              </span>
+              <span :class="t.done ? 'line-through' : ''">{{ t.title }}</span>
+            </div>
+          </div>
+
+          <div v-if="exec.dateModalTasks.length > 0" class="mt-4 bg-cream-90 rounded-card p-3 text-xs text-ink-700 flex items-start gap-2">
+            <Icon name="chat" :size="14" class="text-brand-primary mt-0.5 shrink-0" />
+            <span>「{{ exec.dateModalQuote }}」</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2.5 mt-5">
+        <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="exec.closeDateModal()">
+          關閉
+        </button>
+        <button
+          type="button"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="exec.dateModalTasks.length === 0"
+          @click="exec.confirmDateCheckin()"
+        >
+          確認打卡
+        </button>
+      </div>
     </Modal>
   </div>
 </template>

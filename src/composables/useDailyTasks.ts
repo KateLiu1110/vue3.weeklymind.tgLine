@@ -1,20 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { queryKeys } from '@/api/queryKeys'
 import { createDailyTask, deleteDailyTask, fetchDailyTasks, toggleDailyTask } from '@/api/client/dailyTasks'
+import { useAuthStore } from '@/stores/auth'
 
 export function useDailyTasks() {
+  const auth = useAuthStore()
   return useQuery({
     queryKey: queryKeys.dailyTasks.all,
     queryFn: fetchDailyTasks,
+    enabled: () => auth.isLoggedIn,
   })
 }
 
 export function useDailyTaskMutations() {
+  const auth = useAuthStore()
   const queryClient = useQueryClient()
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.dailyTasks.all })
 
   const createTaskMutation = useMutation({
-    mutationFn: (title: string) => createDailyTask(title),
+    mutationFn: (title: string) => {
+      if (!auth.requireLogin()) return Promise.reject(new Error('not-logged-in'))
+      return createDailyTask(title)
+    },
     onSuccess: invalidate,
   })
 
