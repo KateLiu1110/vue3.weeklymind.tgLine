@@ -30,3 +30,8 @@ export async function updateProject(
 export async function deleteProject(id: string): Promise<void> {
   await apiClient.delete(`/portfolio/${id}`)
 }
+
+// 側邊欄「刪除」作品集看板頁面：整頁資料 + 驅動這個頁面出現在側邊欄的計畫一起刪掉。
+export async function deletePortfolioPage(): Promise<void> {
+  await apiClient.delete('/portfolio')
+}

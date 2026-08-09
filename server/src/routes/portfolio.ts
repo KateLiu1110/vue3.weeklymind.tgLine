@@ -41,6 +41,20 @@ portfolioRouter.patch('/:id', async (req, res, next) => {
   }
 })
 
+// 側邊欄「作品集看板」的刪除入口：整頁重置，連帶把驅動這個頁面出現在側邊欄的
+// module='portfolio' 計畫也刪掉，刪完頁面就會自動從側邊欄消失（不需要另外的顯示旗標）。
+portfolioRouter.delete('/', async (req, res, next) => {
+  try {
+    await prisma.$transaction([
+      prisma.project.deleteMany({ where: { userId: req.userId } }),
+      prisma.plan.deleteMany({ where: { userId: req.userId, module: 'portfolio' } }),
+    ])
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+})
+
 portfolioRouter.delete('/:id', async (req, res, next) => {
   try {
     const existing = await prisma.project.findUnique({ where: { id: req.params.id } })

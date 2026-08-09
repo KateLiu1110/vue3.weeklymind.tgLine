@@ -4,6 +4,7 @@ import {
   createToeicExamDate,
   createToeicTask,
   deleteToeicExamDate,
+  deleteToeicPage,
   deleteToeicTask,
   fetchToeicPage,
   updateToeicProfile,
@@ -50,6 +51,15 @@ export function useToeicMutations() {
     mutationFn: (id: string) => deleteToeicTask(id),
     onSuccess: invalidate,
   })
+  // 側邊欄「刪除」多益英文頁面：連帶刪掉驅動這個頁面出現在側邊欄的計畫，所以連 plans
+  // 也要一起 invalidate，側邊欄才會馬上跟著消失。
+  const deletePageMutation = useMutation({
+    mutationFn: () => deleteToeicPage(),
+    onSuccess: () => {
+      invalidate()
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.all })
+    },
+  })
 
   return {
     updateProfileMutation,
@@ -58,5 +68,6 @@ export function useToeicMutations() {
     createTaskMutation,
     updateTaskMutation,
     deleteTaskMutation,
+    deletePageMutation,
   }
 }

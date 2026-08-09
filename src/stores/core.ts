@@ -183,7 +183,6 @@ export const useCoreStore = defineStore('core', {
     milestones: [] as Milestone[],
     customModules: [] as CustomModule[],
     activeCustomId: null as string | null,
-    streakDays: 14,
     morningTime: '07:30',
     eveningTime: '21:00',
     weeklyReportDay: '五',

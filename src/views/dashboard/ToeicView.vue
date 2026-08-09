@@ -2,21 +2,20 @@
 import { computed } from 'vue'
 import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
-import { useCoreStore } from '@/stores/core'
 import { useToeicStore } from '@/stores/toeic'
-import { useAuthStore } from '@/stores/auth'
 import { useToeicPage, useToeicMutations } from '@/composables/useToeic'
+import { useStreak } from '@/composables/useStreak'
 import Icon from '@/components/common/Icon.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
 import Modal from '@/components/common/Modal.vue'
 import { themeColor } from '@/lib/themeColor'
 
-const core = useCoreStore()
 const toeic = useToeicStore()
-const auth = useAuthStore()
 const pageQuery = useToeicPage()
 const { updateProfileMutation, createExamDateMutation, deleteExamDateMutation, createTaskMutation, updateTaskMutation, deleteTaskMutation } =
   useToeicMutations()
+const streakQuery = useStreak()
+const streakDays = computed(() => streakQuery.data.value ?? 0)
 
 const profile = computed(
   () =>
@@ -161,7 +160,7 @@ function submitScore() {
         <div class="rounded-card p-4 flex items-center justify-center gap-2 bg-cream-100">
           <Icon name="fire" :size="22" class="text-brand-primary" />
           <div>
-            <div class="font-medium text-brand-primary" style="font-size: 17px">{{ auth.isLoggedIn ? core.streakDays : 0 }} 天</div>
+            <div class="font-medium text-brand-primary" style="font-size: 17px">{{ streakDays }} 天</div>
             <div class="text-xs text-sand-500">英文連續打卡</div>
           </div>
         </div>

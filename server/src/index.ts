@@ -14,6 +14,7 @@ import { plansRouter } from './routes/plans.js'
 import { portfolioRouter } from './routes/portfolio.js'
 import { retroRouter } from './routes/retro.js'
 import { sportRouter } from './routes/sport.js'
+import { streakRouter } from './routes/streak.js'
 import { toeicRouter } from './routes/toeic.js'
 import { startDailyCheckinReminder } from './services/reminder.js'
 
@@ -41,6 +42,7 @@ app.use('/api/links', linksRouter)
 app.use('/api/retro', retroRouter)
 app.use('/api/achievements', achievementsRouter)
 app.use('/api/overview', overviewRouter)
+app.use('/api/streak', streakRouter)
 
 app.use(errorHandler)
 

@@ -29,4 +29,7 @@ export const queryKeys = {
   overview: {
     all: ['overview'] as const,
   },
+  streak: {
+    all: ['streak'] as const,
+  },
 }

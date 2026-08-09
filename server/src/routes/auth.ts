@@ -19,6 +19,19 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
   }
 })
 
+// 登入頁的「新人體驗」按鈕：不用走 LINE OAuth 或簡訊驗證，直接建一個全新、沒有
+// phone/lineUserId 的帳號，讓人可以立刻用「全新使用者」的角度看整個 App（訪客模式
+// 只能看，這個是真的登入、資料保證是空的）。
+authRouter.post('/new-user', async (_req, res, next) => {
+  try {
+    const user = await prisma.user.create({ data: { displayName: '新朋友' } })
+    const token = signToken(user.id)
+    res.status(201).json({ ok: true, data: { token, user } })
+  } catch (err) {
+    next(err)
+  }
+})
+
 const CODE_TTL_MS = 5 * 60 * 1000
 
 interface PendingCode {

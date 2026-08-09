@@ -1,10 +1,31 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useCoreStore } from '@/stores/core'
+import { useAuthStore } from '@/stores/auth'
+import { createNewUser } from '@/api/client/auth'
 
 const route = useRoute()
+const router = useRouter()
 const core = useCoreStore()
+const auth = useAuthStore()
+const newUserLoading = ref(false)
+const newUserError = ref('')
+
+async function tryAsNewUser() {
+  newUserLoading.value = true
+  newUserError.value = ''
+  try {
+    const { token, user } = await createNewUser()
+    auth.setSession(user, token)
+    core.resetLocalState()
+    router.replace({ name: 'overview' })
+  } catch {
+    newUserError.value = '建立新帳號失敗，請確認後端伺服器是否已啟動'
+  } finally {
+    newUserLoading.value = false
+  }
+}
 
 const lineLoginError = computed(() => {
   if (route.query.error === 'line_login_not_configured') return 'LINE 登入尚未設定，請洽管理員設定 LINE Login Channel'
@@ -77,6 +98,25 @@ function loginWithLine() {
         使用 {{ platformTab.label }} 帳號登入
       </button>
       <p v-if="lineLoginError" class="mt-2.5 text-danger text-xs text-center">⚠ {{ lineLoginError }}</p>
+
+      <div class="flex items-center gap-2.5 my-4.5">
+        <span class="flex-1 h-px bg-cream-150" />
+        <span class="text-sand-400" style="font-size: 11px">或</span>
+        <span class="flex-1 h-px bg-cream-150" />
+      </div>
+
+      <button
+        type="button"
+        class="flex items-center justify-center gap-2 w-full text-ink-700 font-medium py-3 rounded-control border border-sand-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        :disabled="newUserLoading"
+        @click="tryAsNewUser"
+      >
+        {{ newUserLoading ? '建立中…' : '以新人身分體驗（沒有任何資料）' }}
+      </button>
+      <p v-if="newUserError" class="mt-2.5 text-danger text-xs text-center">⚠ {{ newUserError }}</p>
+      <p class="mt-2 text-sand-400 text-center leading-relaxed" style="font-size: 11px">
+        直接建立一個全新的空白帳號並登入，適合想先看看沒有任何資料時畫面長怎樣的人
+      </p>
 
       <p class="mt-5 text-sand-400 text-center leading-relaxed" style="font-size: 11.5px">
         第一次用 {{ platformTab.label }} 帳號登入會自動建立帳號，不用另外註冊。<br />

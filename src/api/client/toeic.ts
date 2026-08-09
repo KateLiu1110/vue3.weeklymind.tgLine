@@ -33,6 +33,11 @@ export async function fetchToeicPage(): Promise<ToeicPageDto> {
   return res.data.data
 }
 
+// 側邊欄「刪除」多益英文頁面：整頁資料 + 驅動這個頁面出現在側邊欄的計畫一起刪掉。
+export async function deleteToeicPage(): Promise<void> {
+  await apiClient.delete('/toeic')
+}
+
 export async function updateToeicProfile(input: Partial<ToeicProfileDto>): Promise<ToeicProfileDto> {
   const res = await apiClient.patch<ApiSuccess<ToeicProfileDto>>('/toeic/profile', input)
   return res.data.data

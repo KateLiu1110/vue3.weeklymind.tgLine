@@ -8,6 +8,10 @@ import { fetchMe } from '@/api/client/auth'
 import { usePlans } from '@/composables/usePlans'
 import { useMilestones } from '@/composables/useMilestones'
 import { useAchievements } from '@/composables/useAchievements'
+import { useStreak } from '@/composables/useStreak'
+import { useToeicMutations } from '@/composables/useToeic'
+import { useProjectMutations } from '@/composables/usePortfolioBoard'
+import { useSportMutations } from '@/composables/useSport'
 import { ACHIEVEMENT_KEYS } from '@/api/client/achievements'
 import Modal from '@/components/common/Modal.vue'
 import Icon from '@/components/common/Icon.vue'
@@ -74,6 +78,20 @@ const goalNavItems = [
   { name: 'portfolio', label: '作品集看板', icon: 'navFolder' },
   { name: 'sport', label: '運動', icon: 'navPerson' },
 ]
+// 這三個內建頁面跟自訂模組一樣，「有沒有對應計畫」決定側邊欄要不要顯示——訪客沒有
+// 帳號可言，維持原本「可以整站瀏覽」的設計，一律顯示讓訪客能預覽。
+function hasGoalNavData(name: string): boolean {
+  return !auth.isLoggedIn || core.plans.some((p) => p.module === name)
+}
+const { deletePageMutation: deleteToeicPageMutation } = useToeicMutations()
+const { deletePageMutation: deletePortfolioPageMutation } = useProjectMutations()
+const { deletePageMutation: deleteSportPageMutation } = useSportMutations()
+function deleteGoalNavPage(name: string) {
+  if (!auth.requireLogin()) return
+  if (name === 'toeic') deleteToeicPageMutation.mutate()
+  else if (name === 'portfolio') deletePortfolioPageMutation.mutate()
+  else if (name === 'sport') deleteSportPageMutation.mutate()
+}
 const toolNavItems = [
   { name: 'links', label: '連結收藏', icon: 'navLink', achievementKey: ACHIEVEMENT_KEYS.links },
   { name: 'retro', label: '覆盤中心', icon: 'chart', achievementKey: ACHIEVEMENT_KEYS.retro },
@@ -82,6 +100,8 @@ const achievementsQuery = useAchievements()
 function isToolLocked(key: string): boolean {
   return auth.isLoggedIn && !(achievementsQuery.data.value ?? []).includes(key)
 }
+const streakQuery = useStreak()
+const streakDays = computed(() => streakQuery.data.value ?? 0)
 const systemNavItems = [
   { name: 'settings', label: '設定', icon: 'gear' },
   { name: 'linebot', label: 'LineBot 設定', icon: 'navChat' },
@@ -147,17 +167,26 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
       </RouterLink>
 
       <div v-if="!sidebarCollapsed" class="text-xs font-medium text-sand-300 tracking-wide px-2.5 pt-3 pb-0.5">目標計畫</div>
-      <RouterLink
-        v-for="item in goalNavItems"
-        :key="item.name"
-        :to="{ name: item.name }"
-        class="flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] text-sm font-medium text-ink-700"
-        :class="sidebarCollapsed ? 'justify-center' : ''"
-        active-class="bg-brand-primary text-white"
-      >
-        <Icon :name="item.icon" :size="16" />
-        <span v-if="!sidebarCollapsed" class="whitespace-nowrap">{{ item.label }}</span>
-      </RouterLink>
+      <template v-for="item in goalNavItems" :key="item.name">
+        <RouterLink
+          v-if="hasGoalNavData(item.name)"
+          :to="{ name: item.name }"
+          class="group flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] text-sm font-medium text-ink-700"
+          :class="sidebarCollapsed ? 'justify-center' : ''"
+          active-class="bg-brand-primary text-white"
+        >
+          <Icon :name="item.icon" :size="16" />
+          <span v-if="!sidebarCollapsed" class="flex-1 whitespace-nowrap">{{ item.label }}</span>
+          <span
+            v-if="!sidebarCollapsed && auth.isLoggedIn && core.plans.some((p) => p.module === item.name)"
+            class="shrink-0 opacity-0 group-hover:opacity-100 cursor-pointer"
+            title="刪除頁面資料"
+            @click.stop.prevent="deleteGoalNavPage(item.name)"
+          >
+            <Icon name="trash" :size="13" />
+          </span>
+        </RouterLink>
+      </template>
       <RouterLink
         v-for="mod in core.customModules"
         :key="mod.id"
@@ -220,7 +249,7 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
       >
         <Icon name="fire" :size="20" class="text-brand-primary shrink-0" />
         <div v-if="!sidebarCollapsed">
-          <div class="font-medium text-brand-primary leading-none whitespace-nowrap" style="font-size: 16px">{{ auth.isLoggedIn ? core.streakDays : 0 }} 天</div>
+          <div class="font-medium text-brand-primary leading-none whitespace-nowrap" style="font-size: 16px">{{ streakDays }} 天</div>
           <div class="text-xs text-sand-400 whitespace-nowrap">連續打卡</div>
         </div>
       </div>

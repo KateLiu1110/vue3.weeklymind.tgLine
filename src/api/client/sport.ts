@@ -22,6 +22,11 @@ export async function fetchSportPage(): Promise<SportPageDto> {
   return res.data.data
 }
 
+// 側邊欄「刪除」運動頁面：整頁資料 + 驅動這個頁面出現在側邊欄的計畫一起刪掉。
+export async function deleteSportPage(): Promise<void> {
+  await apiClient.delete('/sport')
+}
+
 export async function createSportCategory(name: string): Promise<SportCategoryTabDto> {
   const res = await apiClient.post<ApiSuccess<SportCategoryTabDto>>('/sport/categories', { name })
   return res.data.data

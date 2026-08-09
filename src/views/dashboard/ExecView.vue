@@ -5,6 +5,7 @@ import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore } from '@/stores/core'
 import { useExecStore } from '@/stores/exec'
 import { usePlanMutations } from '@/composables/usePlans'
+import { useStreak } from '@/composables/useStreak'
 import { useAuthStore } from '@/stores/auth'
 import Icon from '@/components/common/Icon.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
@@ -15,6 +16,8 @@ const core = useCoreStore()
 const exec = useExecStore()
 const auth = useAuthStore()
 const { checkinPlanMutation } = usePlanMutations()
+const streakQuery = useStreak()
+const streakDays = computed(() => streakQuery.data.value ?? 0)
 
 function checkin(planId: string) {
   if (!auth.requireLogin()) return
@@ -249,7 +252,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
       <div class="bg-gold-accent rounded-card px-5 py-7 text-center relative overflow-hidden shadow">
         <div class="flex items-center justify-center gap-2">
           <Icon name="fire" :size="24" class="text-ink-amber" />
-          <span class="font-medium text-ink-amber whitespace-nowrap" style="font-size: 22px">連續 {{ auth.isLoggedIn ? core.streakDays : 0 }} 天</span>
+          <span class="font-medium text-ink-amber whitespace-nowrap" style="font-size: 22px">連續 {{ streakDays }} 天</span>
         </div>
         <p class="mt-2 text-sm font-medium text-ink-amber/80 leading-relaxed">保持運動與學習節奏！</p>
       </div>

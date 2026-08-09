@@ -8,3 +8,9 @@ export async function fetchMe(): Promise<AuthUser> {
   const res = await apiClient.get<ApiSuccess<AuthUser>>('/auth/me')
   return res.data.data
 }
+
+// 登入頁「新人體驗」按鈕：建一個全新、保證沒有任何資料的帳號並直接登入。
+export async function createNewUser(): Promise<{ token: string; user: AuthUser }> {
+  const res = await apiClient.post<ApiSuccess<{ token: string; user: AuthUser }>>('/auth/new-user')
+  return res.data.data
+}

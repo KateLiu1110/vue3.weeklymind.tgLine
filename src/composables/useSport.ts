@@ -4,6 +4,7 @@ import {
   createSportCategory,
   createSportTodo,
   deleteSportCategory,
+  deleteSportPage,
   deleteSportTodo,
   fetchSportPage,
   toggleSportTodo,
@@ -43,6 +44,22 @@ export function useSportMutations() {
     mutationFn: (id: string) => deleteSportTodo(id),
     onSuccess: invalidate,
   })
+  // 側邊欄「刪除」運動頁面：連帶刪掉驅動這個頁面出現在側邊欄的計畫，所以連 plans
+  // 也要一起 invalidate，側邊欄才會馬上跟著消失。
+  const deletePageMutation = useMutation({
+    mutationFn: () => deleteSportPage(),
+    onSuccess: () => {
+      invalidate()
+      queryClient.invalidateQueries({ queryKey: queryKeys.plans.all })
+    },
+  })
 
-  return { createCategoryMutation, deleteCategoryMutation, createTodoMutation, toggleTodoMutation, deleteTodoMutation }
+  return {
+    createCategoryMutation,
+    deleteCategoryMutation,
+    createTodoMutation,
+    toggleTodoMutation,
+    deleteTodoMutation,
+    deletePageMutation,
+  }
 }

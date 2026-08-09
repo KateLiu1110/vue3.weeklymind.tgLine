@@ -16,6 +16,22 @@ sportRouter.get('/', async (req, res) => {
   res.json({ ok: true, data: { categories, todos } })
 })
 
+// 側邊欄「運動」的刪除入口：整頁重置，連帶把驅動這個頁面出現在側邊欄的
+// module='sport' 計畫也刪掉，刪完頁面就會自動從側邊欄消失（不需要另外的顯示旗標）。
+// 注意：LINE Bot 打卡紀錄（SportLog）是不同概念，不屬於這個頁面，不會一起刪。
+sportRouter.delete('/', async (req, res, next) => {
+  try {
+    await prisma.$transaction([
+      prisma.sportTodoItem.deleteMany({ where: { userId: req.userId } }),
+      prisma.sportCategoryTab.deleteMany({ where: { userId: req.userId } }),
+      prisma.plan.deleteMany({ where: { userId: req.userId, module: 'sport' } }),
+    ])
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+})
+
 const categoryInput = z.object({ name: z.string().min(1) })
 
 sportRouter.post('/categories', async (req, res, next) => {
