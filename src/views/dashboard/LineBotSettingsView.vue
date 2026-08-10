@@ -3,11 +3,18 @@ import { computed, ref } from 'vue'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore } from '@/stores/core'
 import { useAuthStore } from '@/stores/auth'
+import { updatePreferences } from '@/api/client/preferences'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const core = useCoreStore()
 const auth = useAuthStore()
+
+async function setBotLang(lang: string) {
+  if (!auth.requireLogin()) return
+  const updated = await updatePreferences({ botLang: lang })
+  if (auth.user) auth.user.botLang = updated.botLang
+}
 
 interface Reminder {
   id: string
@@ -145,18 +152,26 @@ const weeklyReviewOptions: ChartOptions<'bar'> = {
             <button
               type="button"
               class="px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer border-0"
-              :class="core.botLang === 'zh' ? 'bg-brand-primary text-white' : 'bg-transparent text-ink-700'"
-              @click="core.setBotLang('zh')"
+              :class="auth.user?.botLang === 'zh' ? 'bg-brand-primary text-white' : 'bg-transparent text-ink-700'"
+              @click="setBotLang('zh')"
             >
               繁體中文
             </button>
             <button
               type="button"
               class="px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer border-0"
-              :class="core.botLang === 'en' ? 'bg-brand-primary text-white' : 'bg-transparent text-ink-700'"
-              @click="core.setBotLang('en')"
+              :class="auth.user?.botLang === 'en' ? 'bg-brand-primary text-white' : 'bg-transparent text-ink-700'"
+              @click="setBotLang('en')"
             >
               English
+            </button>
+            <button
+              type="button"
+              class="px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer border-0"
+              :class="auth.user?.botLang === 'ja' ? 'bg-brand-primary text-white' : 'bg-transparent text-ink-700'"
+              @click="setBotLang('ja')"
+            >
+              日本語
             </button>
           </div>
         </div>

@@ -2,9 +2,17 @@ import { Router, type ErrorRequestHandler } from 'express'
 import * as line from '@line/bot-sdk'
 import { prisma } from '../db.js'
 import { detectIntent, pickChatReply, type Intent } from '../services/ai.js'
-import { replyMessages, textMessage, buildLinkClassificationFlex, getCheckListFlex } from '../services/line.js'
+import {
+  replyMessages,
+  textMessage,
+  buildLinkClassificationFlex,
+  getCheckListFlex,
+  getWeeklyReportFlex,
+  getRetroAnalysisFlex,
+} from '../services/line.js'
 import { detectPlatform } from '../services/linkClassifier.js'
-import { checkAndUnlockAchievements } from '../lib/achievements.js'
+import { checkAndUnlockAchievements, notifyUnlocks, getUnlockedKeys, ACHIEVEMENT_KEYS } from '../lib/achievements.js'
+import { normalizeBotLang, t, CHECKLIST_KEYWORDS, WEEKLY_REPORT_KEYWORDS, RETRO_KEYWORDS } from '../services/lineMessages.js'
 
 // --- 初始化 LINE 設定 ---
 const config = {
@@ -35,7 +43,7 @@ lineWebhookRouter.post('/', line.middleware(config), async (req, res) => {
 lineWebhookRouter.use(handleWebhookError)
 
 // --- 帳號解析：加好友的瞬間就完成「註冊 + 登入」，不需要輸入任何東西 ---
-async function resolveUserId(event: line.webhook.Event): Promise<string | null> {
+async function resolveUser(event: line.webhook.Event): Promise<{ id: string; botLang: string } | null> {
   if (event.source?.type !== 'user' || !event.source.userId) return null
   const lineUserId = event.source.userId
   const user = await prisma.user.upsert({
@@ -43,38 +51,50 @@ async function resolveUserId(event: line.webhook.Event): Promise<string | null> 
     update: {},
     create: { lineUserId, botPlatform: 'line' },
   })
-  return user.id
+  return { id: user.id, botLang: user.botLang }
 }
 
 // --- 事件處理核心 ---
 async function handleEvent(event: line.webhook.Event) {
-  const userId = await resolveUserId(event)
-  if (!userId) return
+  const user = await resolveUser(event)
+  if (!user) return
+  const userId = user.id
+  const lang = normalizeBotLang(user.botLang)
 
   if (event.type === 'follow' && event.replyToken) {
-    await replyMessages(event.replyToken, [
-      textMessage(
-        '歡迎加入 WeeklyMind 🐾 帳號已經自動建立好了！\n直接跟我說「今天跑了5公里」「背了20個單字」，或傳連結給我，我都會幫你記錄。輸入「任務」可以看今天的打卡清單。',
-      ),
-    ])
+    await replyMessages(event.replyToken, [textMessage(t(lang, 'welcome'))])
     return
   }
 
   if (event.type === 'message' && event.message.type === 'text' && event.replyToken) {
     const text = event.message.text
-    if (text === '任務') {
+    if (CHECKLIST_KEYWORDS.includes(text)) {
       return await replyMessages(event.replyToken, [
-        { type: 'flex', altText: '每日任務 CheckList', contents: await getCheckListFlex(userId) },
+        { type: 'flex', altText: t(lang, 'checklistTitle'), contents: await getCheckListFlex(userId, lang) },
+      ])
+    }
+    if (WEEKLY_REPORT_KEYWORDS.includes(text)) {
+      return await replyMessages(event.replyToken, [
+        { type: 'flex', altText: t(lang, 'weeklyTitle'), contents: await getWeeklyReportFlex(userId, lang) },
+      ])
+    }
+    if (RETRO_KEYWORDS.includes(text)) {
+      const unlocked = await getUnlockedKeys(userId)
+      if (!unlocked.includes(ACHIEVEMENT_KEYS.retro)) {
+        return await replyMessages(event.replyToken, [textMessage(t(lang, 'retroLocked'))])
+      }
+      return await replyMessages(event.replyToken, [
+        { type: 'flex', altText: t(lang, 'retroTitle'), contents: await getRetroAnalysisFlex(userId, lang) },
       ])
     }
     await handleTextMessage(userId, event.replyToken, text)
-    await checkAndUnlockAchievements(userId)
+    await notifyUnlocks(userId, await checkAndUnlockAchievements(userId))
     return
   }
 
   if (event.type === 'postback' && event.replyToken) {
     await handlePostback(userId, event.replyToken, event.postback.data)
-    await checkAndUnlockAchievements(userId)
+    await notifyUnlocks(userId, await checkAndUnlockAchievements(userId))
   }
 }
 

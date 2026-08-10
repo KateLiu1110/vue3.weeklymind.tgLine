@@ -125,3 +125,44 @@
   --radius-control: 8px;
   --radius-card: 12px;
 }
+
+/*
+ * 主題色系（設定頁「主題色彩」，解鎖後可選）。只覆蓋「品牌色」這幾個 token，不動
+ * cream/ink/sand 這些中性色階——使用者提供的每個系列只有 5 個色階，不足以撐起全站
+ * 30+ 個語意色 token，全部替換會超出規格、也會讓大量沒對應顏色的地方變得不協調。
+ * 用 [data-theme] 蓋掉 @theme 裡的預設值即可，因為 Tailwind v4 的工具類別本來就是
+ * 透過 var(--color-*) 讀值，不需要改任何元件程式碼。預設（沒有 data-theme 或
+ * data-theme="forest"）就是原本的森林綠，不用額外宣告。
+ */
+:root[data-theme='ocean'] {
+  --color-brand-primary: #1a7bb9;
+  --color-brand-primary-dark: #0a4d7c;
+  --color-brand-secondary: #2eaee0;
+  --color-brand-secondary-muted: #2eaee0;
+  --color-success-bg-soft: #a8dfef;
+  --color-sage-accent: #a8dfef;
+  --color-forest-alt: #1a7bb9;
+  --color-mint-pale: #e8f7fc;
+}
+
+:root[data-theme='starry'] {
+  --color-brand-primary: #3d1f7a;
+  --color-brand-primary-dark: #1a0a3d;
+  --color-brand-secondary: #7b4fc4;
+  --color-brand-secondary-muted: #7b4fc4;
+  --color-success-bg-soft: #c4a8f0;
+  --color-sage-accent: #c4a8f0;
+  --color-forest-alt: #3d1f7a;
+  --color-mint-pale: #f0eaff;
+}
+
+:root[data-theme='sakura'] {
+  --color-brand-primary: #c4547a;
+  --color-brand-primary-dark: #8b2252;
+  --color-brand-secondary: #e88faa;
+  --color-brand-secondary-muted: #e88faa;
+  --color-success-bg-soft: #f5c8d8;
+  --color-sage-accent: #f5c8d8;
+  --color-forest-alt: #c4547a;
+  --color-mint-pale: #fff0f5;
+}

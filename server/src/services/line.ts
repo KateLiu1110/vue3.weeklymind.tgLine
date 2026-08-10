@@ -1,6 +1,7 @@
 import { messagingApi } from '@line/bot-sdk'
 import type { LinkPlatform } from '@prisma/client'
 import { prisma } from '../db.js'
+import { t, M, type BotLang } from './lineMessages.js'
 
 export const lineClient = new messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '',
@@ -126,7 +127,7 @@ function taskRow(params: { label: string; done: boolean; data: string }): messag
  * 與排程主動推播（見 services/reminder.ts）共用。
  * TOEIC 與作品集區塊會即時反映該使用者當天的真實資料。
  */
-export async function getCheckListFlex(userId: string): Promise<messagingApi.FlexBubble> {
+export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Promise<messagingApi.FlexBubble> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -155,7 +156,7 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
       contents: [
         {
           type: 'text',
-          text: '📝 每日任務 CheckList',
+          text: t(lang, 'checklistTitle'),
           weight: 'bold',
           size: 'lg',
         },
@@ -170,7 +171,7 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
           contents: [
             {
               type: 'text',
-              text: '📚 TOEIC 衝刺',
+              text: `📚 ${t(lang, 'checklistToeic')}`,
               weight: 'bold',
               size: 'sm',
               color: '#416743',
@@ -212,7 +213,7 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
           contents: [
             {
               type: 'text',
-              text: '🎨 作品集規劃',
+              text: `🎨 ${t(lang, 'checklistPortfolio')}`,
               weight: 'bold',
               size: 'sm',
               color: '#416743',
@@ -247,7 +248,7 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
                         data: new URLSearchParams({ type: 'project', id: p.id }).toString(),
                       }),
                     )
-                  : [{ type: 'text', text: '尚無進行中的專案', size: 'sm', color: '#A99A7E' }],
+                  : [{ type: 'text', text: t(lang, 'checklistNoProjects'), size: 'sm', color: '#A99A7E' }],
             },
           ],
         },
@@ -258,7 +259,7 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
           contents: [
             {
               type: 'text',
-              text: '💻 前端小知識',
+              text: `💻 ${t(lang, 'checklistFrontend')}`,
               weight: 'bold',
               size: 'sm',
               color: '#416743',
@@ -300,7 +301,7 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
           contents: [
             {
               type: 'text',
-              text: '🏃 運動',
+              text: `🏃 ${t(lang, 'checklistSport')}`,
               weight: 'bold',
               size: 'sm',
               color: '#416743',
@@ -342,7 +343,7 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
           color: '#416743',
           action: {
             type: 'postback',
-            label: '一鍵完成所有項目',
+            label: t(lang, 'checklistDoneAll'),
             data: new URLSearchParams({ type: 'all_done' }).toString(),
           },
         },
@@ -356,5 +357,143 @@ export async function getCheckListFlex(userId: string): Promise<messagingApi.Fle
         backgroundColor: '#FFFAF5',
       },
     },
+  }
+}
+
+function planProgressRow(title: string, pct: number): messagingApi.FlexBox {
+  return {
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'xs',
+    margin: 'md',
+    contents: [
+      {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: title, size: 'sm', flex: 4, wrap: true },
+          { type: 'text', text: `${pct}%`, size: 'sm', align: 'end', color: '#416743', flex: 1 },
+        ],
+      },
+      {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#E0E0E0',
+        height: '6px',
+        cornerRadius: 'md',
+        contents: [{ type: 'box', layout: 'vertical', backgroundColor: '#416743', width: `${pct}%`, contents: [] }],
+      },
+    ],
+  }
+}
+
+/**
+ * 每週匯報，供關鍵字「週報」觸發與排程主動推播（見 services/reminder.ts）共用。
+ * 本週打卡次數是「每日任務完成 + 運動紀錄 + 多益每日打卡」三種有實際日期的活動加總，
+ * 跟 lib/streak.ts 的連續打卡天數用同一批資料源，只是這裡算的是「次數」不是「連續天數」。
+ */
+export async function getWeeklyReportFlex(userId: string, lang: BotLang = 'zh'): Promise<messagingApi.FlexBubble> {
+  const weekAgo = new Date()
+  weekAgo.setDate(weekAgo.getDate() - 7)
+
+  const [dailyTaskCount, sportLogCount, toeicCount, plans] = await Promise.all([
+    prisma.dailyTask.count({ where: { userId, completedAt: { gte: weekAgo } } }),
+    prisma.sportLog.count({ where: { userId, loggedAt: { gte: weekAgo } } }),
+    prisma.toeicProgress.count({ where: { userId, date: { gte: weekAgo } } }),
+    prisma.plan.findMany({ where: { userId }, orderBy: { createdAt: 'asc' }, take: 5 }),
+  ])
+  const totalCheckins = dailyTaskCount + sportLogCount + toeicCount
+
+  return {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      contents: [
+        { type: 'text', text: t(lang, 'weeklyTitle'), weight: 'bold', size: 'lg' },
+        { type: 'separator', margin: 'md' },
+        {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'xs',
+          margin: 'md',
+          contents: [
+            { type: 'text', text: t(lang, 'weeklyTotalLabel'), size: 'sm', color: '#7C9473' },
+            { type: 'text', text: `${totalCheckins} ${t(lang, 'weeklyTotalUnit')}`, weight: 'bold', size: 'xxl', color: '#416743' },
+          ],
+        },
+        { type: 'separator', margin: 'md' },
+        { type: 'text', text: t(lang, 'weeklyPlansLabel'), weight: 'bold', size: 'sm', margin: 'md' },
+        ...(plans.length > 0
+          ? plans.map((p) => planProgressRow(p.title, p.pct))
+          : [{ type: 'text' as const, text: t(lang, 'weeklyNoPlans'), size: 'sm' as const, color: '#A99A7E' }]),
+      ],
+    },
+    styles: { body: { backgroundColor: '#FFFAF5' } },
+  }
+}
+
+function daysSince(dateStr: string): number {
+  const diffMs = Date.now() - new Date(dateStr).getTime()
+  return Math.max(Math.floor(diffMs / 86_400_000), 0)
+}
+
+/**
+ * 覆盤分析，供關鍵字「覆盤」觸發（見 routes/lineWebhook.ts，呼叫前會先確認 retro_unlocked，
+ * 未解鎖的話由呼叫端回覆提示文字，不會走到這個函式）。內容邏輯對齊網頁「覆盤中心」的
+ * goalsDisplay 計算方式（見 src/views/dashboard/RetroView.vue），維持兩邊講的是同一件事。
+ */
+export async function getRetroAnalysisFlex(userId: string, lang: BotLang = 'zh'): Promise<messagingApi.FlexBubble> {
+  const goals = await prisma.retroGoal.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } })
+
+  const rows: messagingApi.FlexComponent[] =
+    goals.length > 0
+      ? goals.map((g) => {
+          const elapsedDays = daysSince(g.start)
+          const label = g.totalDays ? M.retroPlanned[lang](g.totalDays, elapsedDays + 1) : M.retroOngoing[lang](elapsedDays)
+          const pct = g.totalDays ? Math.min(100, Math.round((elapsedDays / g.totalDays) * 100)) : 0
+          const box: messagingApi.FlexBox = {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            margin: 'md',
+            contents: [
+              { type: 'text', text: g.title, size: 'sm', weight: 'bold', wrap: true },
+              { type: 'text', text: label, size: 'xs', color: '#A99A7E' },
+            ],
+          }
+          if (g.totalDays) {
+            box.contents.push({
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#E0E0E0',
+              height: '6px',
+              cornerRadius: 'md',
+              margin: 'xs',
+              contents: [{ type: 'box', layout: 'vertical', backgroundColor: g.color, width: `${pct}%`, contents: [] }],
+            })
+          }
+          return box
+        })
+      : [
+          {
+            type: 'text',
+            text: t(lang, 'retroEmpty'),
+            size: 'sm',
+            color: '#A99A7E',
+            wrap: true,
+          },
+        ]
+
+  return {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      contents: [{ type: 'text', text: t(lang, 'retroTitle'), weight: 'bold', size: 'lg' }, { type: 'separator', margin: 'md' }, ...rows],
+    },
+    styles: { body: { backgroundColor: '#FFFAF5' } },
   }
 }

@@ -28,6 +28,9 @@ model User {
   avatarUrl   String?
   botPlatform String   @default("line")
   botLang     String   @default("zh")
+  // 主題色系（forest=預設綠、ocean/starry/sakura 三個解鎖後可選的系列），見
+  // src/assets/theme.css 的 [data-theme] 區塊。
+  theme       String   @default("forest")
   // Dashboard 首頁 hero 卡片的長期目標句子，一個使用者一筆，故直接放 User 而非另開表。
   goalTitle   String   @default("")
   createdAt   DateTime @default(now())

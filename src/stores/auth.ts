@@ -9,6 +9,7 @@ export interface AuthUser {
   avatarUrl: string | null
   botPlatform: string
   botLang: string
+  theme: string
 }
 
 export const useAuthStore = defineStore('auth', {

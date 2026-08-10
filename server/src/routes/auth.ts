@@ -19,6 +19,25 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
   }
 })
 
+const THEME_OPTIONS = ['forest', 'ocean', 'starry', 'sakura'] as const
+const BOT_LANG_OPTIONS = ['zh', 'en', 'ja'] as const
+const preferencesInput = z.object({
+  theme: z.enum(THEME_OPTIONS).optional(),
+  botLang: z.enum(BOT_LANG_OPTIONS).optional(),
+})
+
+// 設定頁「主題色彩」「LINE Bot 語言」都存這裡，登入時 GET /me 會帶回來，前端據此
+// 套用 document.documentElement.setAttribute('data-theme', ...)（見 DashboardLayout.vue）。
+authRouter.patch('/preferences', requireAuth, async (req, res, next) => {
+  try {
+    const body = preferencesInput.parse(req.body)
+    const user = await prisma.user.update({ where: { id: req.userId }, data: body })
+    res.json({ ok: true, data: user })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // 登入頁的「新人體驗」按鈕：不用走 LINE OAuth 或簡訊驗證，直接建一個全新、沒有
 // phone/lineUserId 的帳號，讓人可以立刻用「全新使用者」的角度看整個 App（訪客模式
 // 只能看，這個是真的登入、資料保證是空的）。

@@ -44,6 +44,18 @@ onMounted(() => {
   }
 })
 
+// 主題色彩（設定頁）：整個 App 只有這裡需要套用，元件本身用的 bg-brand-primary 等
+// Tailwind 類別不用改，因為它們本來就是讀 theme.css 的 CSS variable。訪客/登出時
+// auth.user 是 null，data-theme 屬性直接拿掉，套用 theme.css 裡的預設森林綠。
+watch(
+  () => auth.user?.theme,
+  (theme) => {
+    if (theme) document.documentElement.setAttribute('data-theme', theme)
+    else document.documentElement.removeAttribute('data-theme')
+  },
+  { immediate: true },
+)
+
 // 計畫管理 module now reads/writes through the real API (see api-architecture.md);
 // this is the single place that hydrates the Pinia core store from the server
 // fetch so every consumer (Overview, ExecView, sidebar) keeps working unchanged.

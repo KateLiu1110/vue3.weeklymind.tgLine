@@ -1,12 +1,36 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useCoreStore } from '@/stores/core'
 import { AVATAR_OPTIONS, useSettingsStore } from '@/stores/settings'
+import { useAuthStore } from '@/stores/auth'
+import { useAchievements } from '@/composables/useAchievements'
+import { ACHIEVEMENT_KEYS } from '@/api/client/achievements'
+import { updatePreferences } from '@/api/client/preferences'
 import Icon from '@/components/common/Icon.vue'
 
 const core = useCoreStore()
 const settings = useSettingsStore()
+const auth = useAuthStore()
 
 const avatarOptions = AVATAR_OPTIONS
+
+const THEME_SERIES = [
+  { id: 'ocean', labelZh: '海洋系列', labelEn: 'Ocean Series', swatches: ['#0A4D7C', '#1A7BB9', '#2EAEE0', '#A8DFEF', '#E8F7FC'] },
+  { id: 'starry', labelZh: '星空系列', labelEn: 'Starry Night Series', swatches: ['#1A0A3D', '#3D1F7A', '#7B4FC4', '#C4A8F0', '#F0EAFF'] },
+  { id: 'sakura', labelZh: '櫻花系列', labelEn: 'Sakura Series', swatches: ['#8B2252', '#C4547A', '#E88FAA', '#F5C8D8', '#FFF0F5'] },
+]
+
+const achievementsQuery = useAchievements()
+const isThemeLocked = computed(
+  () => auth.isLoggedIn && !(achievementsQuery.data.value ?? []).includes(ACHIEVEMENT_KEYS.theme),
+)
+
+async function selectTheme(themeId: string) {
+  if (!auth.requireLogin()) return
+  if (isThemeLocked.value) return
+  const updated = await updatePreferences({ theme: themeId })
+  if (auth.user) auth.user.theme = updated.theme
+}
 </script>
 
 <template>
@@ -66,6 +90,32 @@ const avatarOptions = AVATAR_OPTIONS
           ＋
           <input type="file" accept="image/*" class="hidden" />
         </label>
+      </div>
+    </div>
+
+    <div class="rounded-card p-5 bg-cream-50 border border-cream-150">
+      <div class="text-sm font-medium text-ink-800 mb-1 flex items-center gap-1.5">
+        <Icon v-if="isThemeLocked" name="lock" :size="14" class="text-sand-400" />
+        主題色彩
+      </div>
+      <p class="m-0 mb-3.5 text-xs text-sand-600">
+        {{ isThemeLocked ? '累積打卡達 15 次即可解鎖，選擇喜歡的主題色系' : '選一套喜歡的主題色系，切換後立即套用到整個網站' }}
+      </p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" :class="isThemeLocked ? 'opacity-50 pointer-events-none' : ''">
+        <button
+          v-for="series in THEME_SERIES"
+          :key="series.id"
+          type="button"
+          class="text-left rounded-card p-3.5 border-2 cursor-pointer"
+          :class="auth.user?.theme === series.id ? 'border-brand-primary' : 'border-cream-150'"
+          @click="selectTheme(series.id)"
+        >
+          <div class="text-sm font-medium text-ink-900">{{ series.labelZh }}</div>
+          <div class="text-xs text-sand-500 mb-2.5">{{ series.labelEn }}</div>
+          <div class="flex gap-1.5">
+            <span v-for="c in series.swatches" :key="c" class="w-6 h-6 rounded-full border border-cream-150 shrink-0" :style="{ background: c }" />
+          </div>
+        </button>
       </div>
     </div>
 

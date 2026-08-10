@@ -16,7 +16,7 @@ import { retroRouter } from './routes/retro.js'
 import { sportRouter } from './routes/sport.js'
 import { streakRouter } from './routes/streak.js'
 import { toeicRouter } from './routes/toeic.js'
-import { startDailyCheckinReminder } from './services/reminder.js'
+import { startDailyCheckinReminder, startWeeklyReportReminder } from './services/reminder.js'
 
 const app = express()
 const port = process.env.PORT ? Number(process.env.PORT) : 4000
@@ -51,3 +51,4 @@ app.listen(port, () => {
 })
 
 startDailyCheckinReminder()
+startWeeklyReportReminder()

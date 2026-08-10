@@ -4,6 +4,7 @@ import type { ApiSuccess } from '@/types/api'
 export const ACHIEVEMENT_KEYS = {
   links: 'links_unlocked',
   retro: 'retro_unlocked',
+  theme: 'theme_unlocked',
 } as const
 
 export async function fetchUnlockedAchievements(): Promise<string[]> {
