@@ -34,11 +34,22 @@ const handleWebhookError: ErrorRequestHandler = (err, _req, res, next) => {
 // --- 主要 Webhook 入口 ---
 // 注意：line.middleware() 需要原始（未被 express.json() 解析過的）request body 來驗證
 // 簽章，所以這個 router 必須掛在 server/src/index.ts 裡 express.json() 之前。
-lineWebhookRouter.post('/', line.middleware(config), async (req, res) => {
-  const events = (req.body.events ?? []) as line.webhook.Event[]
-  await Promise.all(events.map((event) => handleEvent(event).catch((err) => console.error('[line-webhook]', err))))
-  res.status(200).end()
-})
+// 只有當 channelSecret 存在時才使用 LINE 中間件驗證
+if (config.channelSecret) {
+  lineWebhookRouter.post('/', line.middleware(config), async (req, res) => {
+    const events = (req.body.events ?? []) as line.webhook.Event[]
+    await Promise.all(events.map((event) => handleEvent(event).catch((err) => console.error('[line-webhook]', err))))
+    res.status(200).end()
+  })
+} else {
+  // 如果沒有設定 channelSecret，使用虛擬路由（用於測試）
+  lineWebhookRouter.post('/', async (req, res) => {
+    console.warn('[line-webhook] No LINE_CHANNEL_SECRET configured, webhook verification skipped')
+    const events = (req.body.events ?? []) as line.webhook.Event[]
+    await Promise.all(events.map((event) => handleEvent(event).catch((err) => console.error('[line-webhook]', err))))
+    res.status(200).end()
+  })
+}
 
 lineWebhookRouter.use(handleWebhookError)
 
