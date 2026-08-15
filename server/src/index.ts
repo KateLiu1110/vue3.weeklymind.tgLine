@@ -20,7 +20,7 @@ import { toeicRouter } from './routes/toeic.js'
 import { startDailyCheckinReminder, startWeeklyReportReminder } from './services/reminder.js'
 
 const app = express()
-const port = process.env.PORT ? Number(process.env.PORT) : 4000
+const port = Number(process.env.PORT || 8080)
 
 app.use(cors())
 
@@ -48,8 +48,8 @@ app.use('/api/streak', streakRouter)
 
 app.use(errorHandler)
 
-app.listen(port, () => {
-  console.log(`WeeklyMind API listening on http://localhost:${port}`)
+app.listen(port, '0.0.0.0', () => {
+  console.log(`WeeklyMind API listening on http://0.0.0.0:${port}`)
 })
 
 startDailyCheckinReminder()
