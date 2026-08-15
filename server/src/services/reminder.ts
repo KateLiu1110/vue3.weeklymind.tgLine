@@ -11,7 +11,7 @@ const DAILY_CHECKIN_TIMEZONE = process.env.DAILY_CHECKIN_TIMEZONE ?? 'Asia/Taipe
 const WEEKLY_REPORT_CRON = process.env.WEEKLY_REPORT_CRON ?? '0 21 * * 5'
 const WEEKLY_REPORT_TIMEZONE = process.env.WEEKLY_REPORT_TIMEZONE ?? DAILY_CHECKIN_TIMEZONE
 
-async function sendDailyCheckin() {
+export async function sendDailyCheckin() {
   const users = await prisma.user.findMany({ where: { lineUserId: { not: null } } })
   for (const user of users) {
     if (!user.lineUserId) continue
@@ -27,7 +27,7 @@ async function sendDailyCheckin() {
   }
 }
 
-async function sendWeeklyReport() {
+export async function sendWeeklyReport() {
   const users = await prisma.user.findMany({ where: { lineUserId: { not: null } } })
   for (const user of users) {
     if (!user.lineUserId) continue

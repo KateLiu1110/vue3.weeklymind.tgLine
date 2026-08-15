@@ -3,6 +3,7 @@ import express from 'express'
 import { errorHandler } from './middleware/errorHandler.js'
 import { achievementsRouter } from './routes/achievements.js'
 import { authRouter } from './routes/auth.js'
+import { cronRouter } from './routes/cron.js'
 import { dailyTasksRouter } from './routes/dailyTasks.js'
 import { liffAuthRouter } from './routes/liffAuth.js'
 import { lineLoginRouter } from './routes/lineLogin.js'
@@ -33,6 +34,7 @@ app.use('/api/plans', plansRouter)
 app.use('/api/milestones', milestonesRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/auth/line', lineLoginRouter)
+app.use('/api/cron', cronRouter)
 app.use('/api/liff', liffAuthRouter)
 app.use('/api/daily-tasks', dailyTasksRouter)
 app.use('/api/toeic', toeicRouter)

@@ -68,6 +68,36 @@ server/                         # Express + Prisma + PostgreSQL（Docker 本機�
 
 ---
 
+## 二、功能狀態矩陣（正向 / 反向 / 初始狀態）
+
+以下為目前實際上線狀態，不再包含已移除的草稿功能。每個功能都標示：
+- 正向流程：實際會怎麼走
+- 反向流程：失敗/鎖定/未設定時的行為
+- 初始狀態：沒有資料時的預設行為
+
+| 功能 | 正向流程 | 反向流程 | 初始狀態 |
+| --- | --- | --- | --- |
+| LINE 加好友自動註冊 | 使用者加好友 → webhook `follow` → `upsert User { lineUserId }` → 回覆歡迎訊息 | 無有效 `lineUserId` 或 webhook 驗簽失敗 → 忽略並記錄錯誤 | 新使用者首次同步時自動建立 `User` 記錄 |
+| LINE Login 網站登入 | 點選「使用 LINE 帳號登入」→ `/api/auth/line/login` → OAuth → `/api/auth/line/callback` → JWT → 前端存 token | Channel 未設定、state 不符或 `code` 無效 → 返回登入頁並顯示「尚未設定」 | 未建立 LINE Login Channel 時，入口仍存在但會回到登入頁 |
+| 訪客瀏覽 | 不登入也能看到 `/app/*` 內容 | 新增/刪除操作會觸發 `requireLogin()`，顯示登入提示 | 沒有 token 時可觀摩畫面，但不能寫入 |
+| 計畫 / 里程碑 / 日常任務 | 前端查詢 API → 後端 Prisma → 資料庫 | 401/403/查詢失敗 → UI 顯示錯誤與空狀態 | 新帳號為空，需手動新增 |
+| LINE Bot 打卡 | 使用者傳訊息 → `detectIntent()` → 寫入 `SportLog` / `ToeicProgress` / `DailyTask` → 回覆確認 | 不是已知關鍵字 → fallback 回覆 | 無資料時不會自動生成紀錄 |
+| 連結收藏 | 新增連結 → 自動分類 → `SavedLink` 寫入 | 未解鎖時 `requireUnlocked('links_unlocked')` → `FEATURE_LOCKED` | 空白：無連結，功能入口被鎖 |
+| 覆盤中心 | 打卡達門檻 → `checkAndUnlockAchievements` → 解鎖 | 未登入、未達門檻或資料不足 → 顯示鎖定 | 空白帳號顯示鎖定畫面 |
+| 每日任務提醒 | `node-cron` 每日固定時段推送 `getCheckListFlex()` | 發送失敗 → console 記錄錯誤，不中斷主流程 | 沒有 `lineUserId` 的使用者不會收到 |
+| 週報提醒 | `node-cron` 每週固定時段推送 `getWeeklyReportFlex()` | 發送失敗 → console 記錄錯誤 | 沒有綁定 LINE 帳號時不會推播 |
+| 解鎖通知 | 新解鎖後 `notifyUnlocks()` 透過 LINE push 通知 | 沒有 LINE 帳號或沒有新解鎖 → 忽略 | 初始均為未解鎖 |
+
+### 已停用 / 已移除的功能
+
+- 手機號碼＋驗證碼登入：`send-code` / `verify-code` API 保留，但沒有前端入口，已被正式移除出工作流程。
+- `RegisterView.vue` / `/register` 路由：已不再使用，直接導回 `/login`。
+- LIFF QR Code 登入入口：後端路由保留，但登入頁不連結，視為備用未啟用。
+- 早期草稿功能名稱：`checkIn.ts` / `schedule.ts` / `review.ts` / `billing.ts` 從未真的存在，已從文件與實作中移除，避免誤導。
+- 任何未用到的「假想 API」或「未接的擴充模組」皆不納入正式功能矩陣，除非已實作並有入口。
+
+---
+
 ## 二、資料庫
 
 **本機開發**：PostgreSQL 跑在 Docker（見專案根目錄 `docker-compose.yml`），`docker compose up -d` 啟動。連線字串在 `server/.env` 的 `DATABASE_URL`。
@@ -201,7 +231,28 @@ LINE 導回 GET /api/auth/line/callback?code=...&state=...
 
 ---
 
-## 八、部署架構（規劃中，目前只有本機開發環境）
+## 八、自動排程設定檔（實際存在）
+
+後端排程設定已經在 `server/.env.example` 與實際 `server/.env` 內定義，重點如下：
+
+```env
+DAILY_CHECKIN_CRON="0 8 * * *"
+DAILY_CHECKIN_TIMEZONE="Asia/Taipei"
+WEEKLY_REPORT_CRON="0 21 * * 5"
+WEEKLY_REPORT_TIMEZONE="Asia/Taipei"
+CRON_SECRET="replace-with-random-secret"
+VERCEL_URL="https://your-app.vercel.app"
+```
+
+實際啟動位置：
+- `server/src/index.ts`：`startDailyCheckinReminder()` / `startWeeklyReportReminder()`
+- `server/src/services/reminder.ts`：`node-cron` 執行日/週提醒
+
+這些設定不是草稿，而是已在程式碼中使用的 cron 設定檔。
+
+---
+
+## 九、部署架構（規劃中，目前只有本機開發環境）
 
 ```
 用戶（LINE / 後台網站）
@@ -226,7 +277,7 @@ Supabase 或 Railway 附掛的 PostgreSQL
 
 ---
 
-## 九、還沒做的部分（依需不需要外部憑證排序）
+## 十、還沒做的部分（依需不需要外部憑證排序）
 
 1. **Claude API 待辦解析**（需要 Claude API Key）：把 `services/ai.ts` 的 `detectIntent()` 從規則式換成真的呼叫 Claude API。
 2. **21:00/週報/月報推播**（不需外部憑證）：`reminder.ts` 目前只有每日任務卡一種排程，其餘規劃的推播時段還沒實作。
