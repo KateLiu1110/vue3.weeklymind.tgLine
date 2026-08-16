@@ -3,8 +3,15 @@ import { getToken } from '@/lib/authToken'
 import type { ApiEnvelope } from '@/types/api'
 import { ApiBusinessError } from './apiBusinessError'
 
+// 取得環境變數的 Domain，去掉尾部斜杠及可能重複的 /api
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+const cleanDomain = rawBaseUrl.replace(/\/+$/, '').replace(/\/api$/, '')
+
+// 強制統一加上 /api，確保 URL 路徑永遠一致
+const baseURL = `${cleanDomain}/api`
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api',
+  baseURL,
   headers: { 'Content-Type': 'application/json' },
 })
 
