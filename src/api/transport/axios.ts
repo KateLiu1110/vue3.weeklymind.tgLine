@@ -10,6 +10,11 @@ const cleanDomain = rawBaseUrl.replace(/\/+$/, '').replace(/\/api$/, '')
 // 強制統一加上 /api，確保 URL 路徑永遠一致
 const baseURL = `${cleanDomain}/api`
 
+// 調試用：輸出實際的 baseURL 值，便於檢查 Vercel 環境變數是否正確
+console.log('[axios] rawBaseUrl:', rawBaseUrl)
+console.log('[axios] cleanDomain:', cleanDomain)
+console.log('[axios] final baseURL:', baseURL)
+
 export const apiClient = axios.create({
   baseURL,
   headers: { 'Content-Type': 'application/json' },
