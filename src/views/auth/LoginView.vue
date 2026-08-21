@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCoreStore } from '@/stores/core'
 import { useAuthStore } from '@/stores/auth'
 import { createNewUser } from '@/api/client/auth'
+import { baseURL as apiBaseUrl } from '@/api/transport/axios'
 
 const route = useRoute()
 const router = useRouter()
@@ -48,8 +49,7 @@ function selectPlatform(platform: 'line' | 'telegram') {
 function loginWithLine() {
   // Telegram 登入還沒實作，這顆按鈕目前只支援 LINE。
   if (core.botPlatform !== 'line') return
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'
-  window.location.href = `${apiBase}/auth/line/login`
+  window.location.href = `${apiBaseUrl}/auth/line/login`
 }
 </script>
 
