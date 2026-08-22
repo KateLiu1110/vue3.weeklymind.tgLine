@@ -7,6 +7,9 @@ import { useAuthStore } from '@/stores/auth'
 import { fetchMe } from '@/api/client/auth'
 import { usePlans } from '@/composables/usePlans'
 import { useMilestones } from '@/composables/useMilestones'
+import { useCustomModules } from '@/composables/useCustomModules'
+import { updateCustomModule } from '@/api/client/customModules'
+import type { CustomModuleUpdateInput } from '@/types/api'
 import { useAchievements } from '@/composables/useAchievements'
 import { useStreak } from '@/composables/useStreak'
 import { useToeicMutations } from '@/composables/useToeic'
@@ -61,21 +64,69 @@ watch(
 // fetch so every consumer (Overview, ExecView, sidebar) keeps working unchanged.
 // 訪客（未登入）沒有 token，usePlans/useMilestones 內建的 enabled 判斷不會發出請求，
 // 畫面自然呈現空狀態，不需要另外的「示範空白帳號」開關。
+// 下面三個 watch 都只在本地陣列還是空的時候才套用 query 回來的資料——避免「送出
+// 新增」跟「頁面剛載入時那次初始 GET」互搶：GET 如果比新增動作晚回來，回應內容是
+// 新增前的舊資料（通常是空陣列），這種情況下套用下去會把剛建立、還沒被這次 query
+// 看到的項目蓋掉（實測會發生，尤其後端回應慢的時候）。
 const plansQuery = usePlans()
 const milestonesQuery = useMilestones()
 watch(
   () => plansQuery.data.value,
   (plans) => {
-    if (plans) core.hydratePlans(plans)
+    if (plans && core.plans.length === 0) core.hydratePlans(plans)
   },
   { immediate: true },
 )
 watch(
   () => milestonesQuery.data.value,
   (milestones) => {
-    if (milestones) core.hydrateMilestones(milestones)
+    if (milestones && core.milestones.length === 0) core.hydrateMilestones(milestones)
   },
   { immediate: true },
+)
+const customModulesQuery = useCustomModules()
+watch(
+  () => customModulesQuery.data.value,
+  (modules) => {
+    if (modules && core.customModules.length === 0) core.hydrateCustomModules(modules)
+  },
+  { immediate: true },
+)
+// 自訂模組（目標／看板／Tab 模板）的內容編輯目前都是直接改 Pinia state（v-model、
+// @click 裡的陣列 push/filter），沒有一個個包成 API mutation；改用整包 deep watch +
+// debounce 存檔，任何畫面上的小動作最後都會落地到後端，不用逐一去改三個模板元件。
+let customModuleSaveTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => core.customModules,
+  () => {
+    if (!auth.isLoggedIn) return
+    clearTimeout(customModuleSaveTimer)
+    customModuleSaveTimer = setTimeout(() => {
+      for (const mod of core.customModules) {
+        const content: CustomModuleUpdateInput = {
+          title: mod.title,
+          heroTitle: mod.heroTitle,
+          heroDesc: mod.heroDesc,
+          heroSchedule: mod.heroSchedule,
+          heroCurrent: mod.heroCurrent,
+          heroTarget: mod.heroTarget,
+          examTitle: mod.examTitle,
+          scoreTitle: mod.scoreTitle,
+          lastLabel: mod.lastLabel,
+          lastScore: mod.lastScore,
+          targetLabel: mod.targetLabel,
+          targetScore: mod.targetScore,
+          dailyTasks: mod.dailyTasks,
+          scores: mod.scores,
+          examDates: mod.examDates,
+          boardColumns: mod.boardColumns,
+          tabCats: mod.tabCats,
+        }
+        updateCustomModule(mod.id, content).catch((err) => console.error('[custom-module] 自動存檔失敗', err))
+      }
+    }, 600)
+  },
+  { deep: true },
 )
 const apiUnreachable = computed(
   () => auth.isLoggedIn && (plansQuery.isError.value || milestonesQuery.isError.value),

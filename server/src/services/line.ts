@@ -110,15 +110,35 @@ export function buildLinkClassificationFlex(params: {
   return { type: 'flex', altText: `已收藏連結並歸類為「${category}」`, contents: bubble }
 }
 
-function taskRow(params: { label: string; done: boolean; data: string }): messagingApi.FlexBox {
+function taskRow(params: { label: string; done: boolean; data: string; lang: BotLang }): messagingApi.FlexBox {
   return {
     type: 'box',
-    layout: 'baseline',
+    layout: 'horizontal',
+    alignItems: 'center',
     paddingAll: 'sm',
     backgroundColor: '#F5EFE6',
     cornerRadius: 'md',
-    contents: [{ type: 'text', text: `${params.done ? '●' : '○'} ${params.label}`, size: 'sm' }],
-    action: { type: 'postback', data: params.data },
+    contents: [
+      {
+        type: 'text',
+        text: `${params.done ? '●' : '○'} ${params.label}`,
+        size: 'sm',
+        flex: 1,
+        gravity: 'center',
+        wrap: true,
+      },
+      {
+        type: 'button',
+        style: params.done ? 'link' : 'primary',
+        height: 'sm',
+        color: params.done ? '#A99A7E' : '#416743',
+        action: {
+          type: 'postback',
+          label: params.done ? t(params.lang, 'checklistChecked') : t(params.lang, 'checklistCheckin'),
+          data: params.data,
+        },
+      },
+    ],
   }
 }
 
@@ -131,12 +151,18 @@ export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Pr
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const [toeic, projects] = await Promise.all([
+  const [toeic, projects, goalModules] = await Promise.all([
     prisma.toeicProgress.findUnique({ where: { userId_date: { userId, date: today } } }),
     prisma.project.findMany({
       where: { userId, status: 'doing' },
       orderBy: { createdAt: 'asc' },
       take: 2,
+    }),
+    // 「新增計畫」選目標模板時填的每日任務——文字是使用者自己在後台輸入的，不是寫死的。
+    prisma.customModule.findMany({
+      where: { userId, kind: 'goal' },
+      orderBy: { createdAt: 'asc' },
+      include: { dailyTasks: { orderBy: { order: 'asc' } } },
     }),
   ])
 
@@ -146,6 +172,7 @@ export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Pr
   const projectPct = projects.length
     ? Math.round(projects.reduce((sum, p) => sum + p.dailyPct, 0) / projects.length)
     : 0
+  const goalModulesWithTasks = goalModules.filter((m) => m.dailyTasks.length > 0)
 
   return {
     type: 'bubble',
@@ -196,11 +223,13 @@ export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Pr
                   label: 'TOEIC 背單字',
                   done: vocabDone,
                   data: new URLSearchParams({ type: 'toeic', field: 'vocab' }).toString(),
+                  lang,
                 }),
                 taskRow({
                   label: 'TOEIC 閱讀測驗',
                   done: readingDone,
                   data: new URLSearchParams({ type: 'toeic', field: 'reading' }).toString(),
+                  lang,
                 }),
               ],
             },
@@ -246,12 +275,47 @@ export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Pr
                         label: p.name,
                         done: p.dailyPct >= 100,
                         data: new URLSearchParams({ type: 'project', id: p.id }).toString(),
+                        lang,
                       }),
                     )
                   : [{ type: 'text', text: t(lang, 'checklistNoProjects'), size: 'sm', color: '#A99A7E' }],
             },
           ],
         },
+        ...goalModulesWithTasks.map((mod): messagingApi.FlexBox => {
+          const doneCount = mod.dailyTasks.filter((t) => t.done).length
+          const pct = Math.round((doneCount / mod.dailyTasks.length) * 100)
+          return {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            contents: [
+              { type: 'text', text: `🎯 ${mod.title}`, weight: 'bold', size: 'sm', color: '#416743' },
+              {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#E0E0E0',
+                height: '6px',
+                cornerRadius: 'md',
+                contents: [{ type: 'box', layout: 'vertical', backgroundColor: '#416743', width: `${pct}%`, contents: [] }],
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'sm',
+                spacing: 'xs',
+                contents: mod.dailyTasks.map((t) =>
+                  taskRow({
+                    label: t.title,
+                    done: t.done,
+                    data: new URLSearchParams({ type: 'custom_task', id: t.id }).toString(),
+                    lang,
+                  }),
+                ),
+              },
+            ],
+          }
+        }),
         {
           type: 'box',
           layout: 'vertical',
@@ -284,11 +348,13 @@ export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Pr
                   label: 'React x3 (含 TS)',
                   done: false,
                   data: new URLSearchParams({ type: 'task', title: 'React x3 (含 TS)' }).toString(),
+                  lang,
                 }),
                 taskRow({
                   label: 'Python / 面試題',
                   done: false,
                   data: new URLSearchParams({ type: 'task', title: 'Python / 面試題' }).toString(),
+                  lang,
                 }),
               ],
             },
@@ -326,6 +392,7 @@ export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Pr
                   label: '超慢跑',
                   done: false,
                   data: new URLSearchParams({ type: 'sport' }).toString(),
+                  lang,
                 }),
               ],
             },

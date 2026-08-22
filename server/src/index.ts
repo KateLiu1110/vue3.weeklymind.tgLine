@@ -4,6 +4,7 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { achievementsRouter } from './routes/achievements.js'
 import { authRouter } from './routes/auth.js'
 import { cronRouter } from './routes/cron.js'
+import { customModulesRouter } from './routes/customModules.js'
 import { dailyTasksRouter } from './routes/dailyTasks.js'
 import { liffAuthRouter } from './routes/liffAuth.js'
 import { lineLoginRouter } from './routes/lineLogin.js'
@@ -45,6 +46,7 @@ app.use('/api/retro', retroRouter)
 app.use('/api/achievements', achievementsRouter)
 app.use('/api/overview', overviewRouter)
 app.use('/api/streak', streakRouter)
+app.use('/api/custom-modules', customModulesRouter)
 
 app.use(errorHandler)
 
