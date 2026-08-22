@@ -29,6 +29,8 @@ export const M = {
   checklistSport: { zh: '運動', en: 'Exercise', ja: '運動' },
   checklistNoProjects: { zh: '尚無進行中的專案', en: 'No projects in progress', ja: '進行中のプロジェクトはありません' },
   checklistDoneAll: { zh: '一鍵完成所有項目', en: 'Mark all as done', ja: 'すべて完了にする' },
+  checklistCheckin: { zh: '打卡', en: 'Check in', ja: 'チェックイン' },
+  checklistChecked: { zh: '已完成', en: 'Done', ja: '完了済み' },
   weeklyTitle: { zh: '📊 本週回顧', en: '📊 Weekly Review', ja: '📊 週次レビュー' },
   weeklyTotalLabel: { zh: '本週累計打卡', en: 'Check-ins this week', ja: '今週のチェックイン回数' },
   weeklyTotalUnit: { zh: '次', en: 'times', ja: '回' },

@@ -230,6 +230,11 @@ async function checkinRun(userId: string) {
   return getWeeklyRunKm(userId)
 }
 
+// 「新增計畫」選目標模板時填的每日任務（見 services/line.ts 的 getCheckListFlex 動態區塊）。
+async function checkinCustomTask(userId: string, taskId: string) {
+  await prisma.customModuleDailyTask.updateMany({ where: { id: taskId, module: { userId } }, data: { done: true } })
+}
+
 async function checkinAll(userId: string) {
   const doingProjects = await prisma.project.findMany({
     where: { userId, status: 'doing' },
@@ -243,6 +248,7 @@ async function checkinAll(userId: string) {
     checkinLearningTask(userId, 'React x3 (含 TS)'),
     checkinLearningTask(userId, 'Python / 面試題'),
     checkinRun(userId),
+    prisma.customModuleDailyTask.updateMany({ where: { done: false, module: { userId, kind: 'goal' } }, data: { done: true } }),
   ])
 }
 
@@ -277,6 +283,12 @@ async function handlePostback(userId: string, replyToken: string, data: string) 
     case 'sport': {
       const weeklyKm = await checkinRun(userId)
       await replyMessages(replyToken, [textMessage(`✅ 已記錄本次超慢跑，本週累計 ${weeklyKm.toFixed(1)}km 🏃`)])
+      return
+    }
+    case 'custom_task': {
+      const taskId = params.get('id')
+      if (taskId) await checkinCustomTask(userId, taskId)
+      await replyMessages(replyToken, [textMessage('✅ 已記錄，繼續保持 💪')])
       return
     }
     case 'all_done': {

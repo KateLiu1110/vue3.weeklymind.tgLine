@@ -16,6 +16,40 @@ vi.mock('@/api/client/milestones', () => ({
   })),
 }))
 
+let customModuleSeq = 0
+vi.mock('@/api/client/customModules', () => ({
+  createCustomModule: vi.fn(async ({ kind, title, heroTitle }) => ({
+    id: 'cm-' + ++customModuleSeq,
+    kind,
+    title,
+    heroTitle: heroTitle ?? '',
+    heroDesc: '',
+    heroSchedule: '',
+    heroCurrent: '0',
+    heroTarget: '',
+    dailyTasks: [],
+    scores: [],
+    examTitle: '考試天數',
+    examDates: [],
+    scoreTitle: '分數紀錄',
+    lastLabel: '',
+    lastScore: '',
+    targetLabel: '',
+    targetScore: '',
+    boardColumns:
+      kind === 'board'
+        ? [
+            { id: 'col-todo', label: '待辦', deletable: false, items: [] },
+            { id: 'col-doing', label: '進行中', deletable: false, items: [] },
+            { id: 'col-done', label: '已完成', deletable: false, items: [] },
+          ]
+        : [],
+    tabCats: kind === 'tab' ? [{ id: 'cat-1', label: '分類 1', deletable: false, items: [] }] : [],
+    activeTabCatId: kind === 'tab' ? 'cat-1' : null,
+  })),
+  deleteCustomModule: vi.fn(async () => undefined),
+}))
+
 vi.mock('@/plugins/queryClient', () => ({
   queryClient: {
     invalidateQueries: vi.fn(),
@@ -69,9 +103,9 @@ describe('core store', () => {
     expect(store.plans[0].linkedCustomId).toBe(store.customModules[0].id)
   })
 
-  it('saveDailyTask adds a task to the active custom module', () => {
+  it('saveDailyTask adds a task to the active custom module', async () => {
     const store = useCoreStore()
-    const mod = store.createCustomModule('goal', '目標模板')
+    const mod = await store.createCustomModule('goal', '目標模板')
     store.activeCustomId = mod.id
     store.dailyTaskForm.title = '背 20 個單字'
 
@@ -81,13 +115,13 @@ describe('core store', () => {
     expect(mod.dailyTasks[0].title).toBe('背 20 個單字')
   })
 
-  it('deleteCustomModule removes the selected custom module', () => {
+  it('deleteCustomModule removes the selected custom module', async () => {
     const store = useCoreStore()
-    const first = store.createCustomModule('goal', '目標模板')
-    const second = store.createCustomModule('board', '看板模板')
+    const first = await store.createCustomModule('goal', '目標模板')
+    const second = await store.createCustomModule('board', '看板模板')
     store.activeCustomId = second.id
 
-    store.deleteCustomModule(first.id)
+    await store.deleteCustomModule(first.id)
 
     expect(store.customModules.some((m) => m.id === first.id)).toBe(false)
     expect(store.activeCustomId).toBe(second.id)
