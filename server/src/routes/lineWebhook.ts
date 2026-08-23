@@ -192,44 +192,6 @@ async function handleLearningIntent(userId: string, replyToken: string, text: st
   await replyMessages(replyToken, [textMessage(`收到！已記錄到「${category}」📚 繼續加油！`)])
 }
 
-function getTodayDateOnly() {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-async function checkinToeicField(userId: string, field: 'vocabDone' | 'readingDone') {
-  const date = getTodayDateOnly()
-  await prisma.toeicProgress.upsert({
-    where: { userId_date: { userId, date } },
-    update: { [field]: true },
-    create: {
-      userId,
-      date,
-      vocabDone: field === 'vocabDone',
-      readingDone: field === 'readingDone',
-      clozeDone: false,
-      dialogueDone: false,
-      textbookPct: 0,
-    },
-  })
-}
-
-async function checkinProject(userId: string, projectId: string) {
-  await prisma.project.updateMany({ where: { id: projectId, userId }, data: { dailyPct: 100 } })
-}
-
-async function checkinLearningTask(userId: string, title: string) {
-  await prisma.dailyTask.create({
-    data: { userId, category: 'frontend', title, source: 'line', completedAt: new Date() },
-  })
-}
-
-async function checkinRun(userId: string) {
-  await prisma.sportLog.create({ data: { userId, category: 'run', distanceKm: 0 } })
-  return getWeeklyRunKm(userId)
-}
-
 // 打卡完成度要同步回 Plan.pct，不然網頁「計劃管理」頁的進度環只認網頁自己的「今日
 // 打卡」按鈕，LINE 這邊打卡完成度再高，網頁看起來還是 0%——兩邊資料各自為政，感覺
 // 像沒連動。透過 Plan.linkedCustomId 找回對應的計畫（見 core.ts 的 savePlan()）。
@@ -330,22 +292,7 @@ async function checkinAllTabItems(userId: string) {
 }
 
 async function checkinAll(userId: string) {
-  const doingProjects = await prisma.project.findMany({
-    where: { userId, status: 'doing' },
-    orderBy: { createdAt: 'asc' },
-    take: 2,
-  })
-  await Promise.all([
-    checkinToeicField(userId, 'vocabDone'),
-    checkinToeicField(userId, 'readingDone'),
-    ...doingProjects.map((p) => checkinProject(userId, p.id)),
-    checkinLearningTask(userId, 'React x3 (含 TS)'),
-    checkinLearningTask(userId, 'Python / 面試題'),
-    checkinRun(userId),
-    checkinAllGoalTasks(userId),
-    checkinAllTabItems(userId),
-    checkinAllBoardItems(userId),
-  ])
+  await Promise.all([checkinAllGoalTasks(userId), checkinAllTabItems(userId), checkinAllBoardItems(userId)])
 }
 
 async function handlePostback(userId: string, replyToken: string, data: string) {
@@ -357,30 +304,6 @@ async function handlePostback(userId: string, replyToken: string, data: string) 
   }
 
   switch (params.get('type')) {
-    case 'toeic': {
-      const isReading = params.get('field') === 'reading'
-      await checkinToeicField(userId, isReading ? 'readingDone' : 'vocabDone')
-      const label = isReading ? 'TOEIC 閱讀測驗' : 'TOEIC 背單字'
-      await replyMessages(replyToken, [textMessage(`✅ 已完成打卡：${label}`)])
-      return
-    }
-    case 'project': {
-      const projectId = params.get('id')
-      if (projectId) await checkinProject(userId, projectId)
-      await replyMessages(replyToken, [textMessage('✅ 專案今日進度已完成！')])
-      return
-    }
-    case 'task': {
-      const title = params.get('title') ?? '每日學習'
-      await checkinLearningTask(userId, title)
-      await replyMessages(replyToken, [textMessage(`✅ 已記錄：${title}`)])
-      return
-    }
-    case 'sport': {
-      const weeklyKm = await checkinRun(userId)
-      await replyMessages(replyToken, [textMessage(`✅ 已記錄本次超慢跑，本週累計 ${weeklyKm.toFixed(1)}km 🏃`)])
-      return
-    }
     case 'custom_task': {
       const taskId = params.get('id')
       if (taskId) await checkinCustomTask(userId, taskId)

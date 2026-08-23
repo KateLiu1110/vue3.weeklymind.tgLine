@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore, type Plan } from '@/stores/core'
@@ -15,6 +16,7 @@ import { themeColor } from '@/lib/themeColor'
 const core = useCoreStore()
 const exec = useExecStore()
 const auth = useAuthStore()
+const router = useRouter()
 const { checkinPlanMutation } = usePlanMutations()
 const streakQuery = useStreak()
 const streakDays = computed(() => streakQuery.data.value ?? 0)
@@ -22,6 +24,20 @@ const streakDays = computed(() => streakQuery.data.value ?? 0)
 function checkin(planId: string) {
   if (!auth.requireLogin()) return
   checkinPlanMutation.mutate(planId)
+}
+
+/** 卡片底下還沒有任務時，「新增任務」直接帶去該計畫的編輯頁——沿用那裡既有的
+ * 新增任務彈窗（依模板種類開對應的那一個），不在執行中心另外做一套。新增完、
+ * 回到這裡卡片就會因為 planTaskCount(p) > 0 自動變成可打卡狀態。 */
+function addTaskFor(plan: Plan) {
+  if (!auth.requireLogin()) return
+  if (!plan.linkedCustomId) return
+  const mod = core.customModules.find((m) => m.id === plan.linkedCustomId)
+  core.setCustomTab(plan.linkedCustomId)
+  if (mod?.kind === 'goal') core.openDailyTaskModal()
+  else if (mod?.kind === 'tab') core.openTabItemModal()
+  else if (mod?.kind === 'board') core.openBoardModal()
+  router.push({ name: 'custom', params: { id: plan.linkedCustomId } })
 }
 
 /** 計畫剛新增、底下自訂模組還沒填任何任務時，不該讓人打卡（沒有東西可以打——跟
@@ -292,7 +308,14 @@ const stageBarOptions: ChartOptions<'bar'> = {
             <Icon v-if="checkinPlanMutation.isPending.value" name="refresh" :size="12" class="animate-spin" />
             ✓ 今日打卡（已 {{ p.checkinsDone }} 次）
           </button>
-          <p v-else class="m-0 mt-3 py-2.5 text-xs text-sand-400 text-center">新增任務後才能打卡</p>
+          <button
+            v-else
+            type="button"
+            class="w-full flex items-center justify-center gap-1.5 mt-3 py-2.5 rounded-control border border-dashed border-sand-250 text-brand-primary text-xs font-medium cursor-pointer"
+            @click="addTaskFor(p)"
+          >
+            ＋ 新增任務
+          </button>
         </div>
       </template>
       <div v-else class="rounded-card p-6.5 text-center text-sand-400 bg-cream-50 border border-cream-150">

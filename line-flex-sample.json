@@ -1,633 +1,222 @@
 {
-  "type": "flex",
-  "altText": "📝 每日任務 CheckList",
-  "contents": {
-    "type": "bubble",
-    "body": {
-      "type": "box",
-      "layout": "vertical",
-      "spacing": "md",
-      "contents": [
-        {
-          "type": "text",
-          "text": "📝 每日任務 CheckList",
-          "weight": "bold",
-          "size": "lg"
-        },
-        {
-          "type": "separator",
-          "margin": "md"
-        },
-        {
-          "type": "box",
-          "layout": "vertical",
-          "spacing": "xs",
-          "contents": [
-            {
-              "type": "text",
-              "text": "📚 TOEIC 衝刺",
-              "weight": "bold",
-              "size": "sm",
-              "color": "#416743"
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "backgroundColor": "#E0E0E0",
-              "height": "6px",
-              "cornerRadius": "md",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "vertical",
-                  "backgroundColor": "#416743",
-                  "width": "50%",
-                  "contents": []
-                }
-              ]
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "margin": "sm",
-              "spacing": "xs",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "● TOEIC 背單字",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "link",
-                      "height": "sm",
-                      "color": "#A99A7E",
-                      "action": {
-                        "type": "postback",
-                        "label": "已完成",
-                        "data": "type=toeic&field=vocab"
-                      }
+  "type": "bubble",
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "spacing": "md",
+    "contents": [
+      {
+        "type": "text",
+        "text": "📝 每日任務 CheckList",
+        "weight": "bold",
+        "size": "lg"
+      },
+      {
+        "type": "separator",
+        "margin": "md"
+      },
+      {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "xs",
+        "contents": [
+          {
+            "type": "text",
+            "text": "🎯 英文",
+            "weight": "bold",
+            "size": "sm",
+            "color": "#416743"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#E0E0E0",
+            "height": "6px",
+            "cornerRadius": "md",
+            "contents": [
+              {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#416743",
+                "width": "0%",
+                "contents": []
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "margin": "sm",
+            "spacing": "xs",
+            "contents": [
+              {
+                "type": "text",
+                "text": "尚無每日任務，到 App 新增",
+                "size": "sm",
+                "color": "#A99A7E"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "xs",
+        "contents": [
+          {
+            "type": "text",
+            "text": "🎯 多益衝刺 600 分",
+            "weight": "bold",
+            "size": "sm",
+            "color": "#416743"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#E0E0E0",
+            "height": "6px",
+            "cornerRadius": "md",
+            "contents": [
+              {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#416743",
+                "width": "0%",
+                "contents": []
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "margin": "sm",
+            "spacing": "xs",
+            "contents": [
+              {
+                "type": "box",
+                "layout": "horizontal",
+                "alignItems": "center",
+                "paddingAll": "sm",
+                "backgroundColor": "#F5EFE6",
+                "cornerRadius": "md",
+                "contents": [
+                  {
+                    "type": "text",
+                    "text": "○ 背 30 個多益單字",
+                    "size": "sm",
+                    "flex": 1,
+                    "gravity": "center",
+                    "wrap": true
+                  },
+                  {
+                    "type": "button",
+                    "style": "primary",
+                    "height": "sm",
+                    "color": "#416743",
+                    "action": {
+                      "type": "postback",
+                      "label": "打卡",
+                      "data": "type=custom_task&id=cmt5rci1j0000vp2c0jblhckd"
                     }
-                  ]
-                },
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ TOEIC 閱讀測驗",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=toeic&field=reading"
-                      }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "xs",
+        "contents": [
+          {
+            "type": "text",
+            "text": "🗂️ 作品集",
+            "weight": "bold",
+            "size": "sm",
+            "color": "#416743"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#E0E0E0",
+            "height": "6px",
+            "cornerRadius": "md",
+            "contents": [
+              {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#416743",
+                "width": "0%",
+                "contents": []
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "margin": "sm",
+            "spacing": "xs",
+            "contents": [
+              {
+                "type": "box",
+                "layout": "horizontal",
+                "alignItems": "center",
+                "paddingAll": "sm",
+                "backgroundColor": "#F5EFE6",
+                "cornerRadius": "md",
+                "contents": [
+                  {
+                    "type": "text",
+                    "text": "○ Weeklumind",
+                    "size": "sm",
+                    "flex": 1,
+                    "gravity": "center",
+                    "wrap": true
+                  },
+                  {
+                    "type": "button",
+                    "style": "primary",
+                    "height": "sm",
+                    "color": "#416743",
+                    "action": {
+                      "type": "postback",
+                      "label": "打卡",
+                      "data": "type=custom_board_item&id=cmt5rcia30003vp2ccc3q39s5"
                     }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "layout": "vertical",
-          "spacing": "xs",
-          "contents": [
-            {
-              "type": "text",
-              "text": "🎨 作品集規劃",
-              "weight": "bold",
-              "size": "sm",
-              "color": "#416743"
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "backgroundColor": "#E0E0E0",
-              "height": "6px",
-              "cornerRadius": "md",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "vertical",
-                  "backgroundColor": "#416743",
-                  "width": "60%",
-                  "contents": []
-                }
-              ]
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "margin": "sm",
-              "spacing": "xs",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ 個人作品集網站改版",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=project&id=cmt5hv5ze0004vpwsi77il8w7"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "layout": "vertical",
-          "spacing": "xs",
-          "contents": [
-            {
-              "type": "text",
-              "text": "🎯 多益衝刺 600 分",
-              "weight": "bold",
-              "size": "sm",
-              "color": "#416743"
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "backgroundColor": "#E0E0E0",
-              "height": "6px",
-              "cornerRadius": "md",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "vertical",
-                  "backgroundColor": "#416743",
-                  "width": "50%",
-                  "contents": []
-                }
-              ]
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "margin": "sm",
-              "spacing": "xs",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "● 背 20 個多益單字",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "link",
-                      "height": "sm",
-                      "color": "#A99A7E",
-                      "action": {
-                        "type": "postback",
-                        "label": "已完成",
-                        "data": "type=custom_task&id=cmt5hv66i0007vpwsrq1ufbeb"
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ 做一回閱讀測驗",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=custom_task&id=cmt5hv66i0008vpwsfqjjwocy"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "layout": "vertical",
-          "spacing": "xs",
-          "contents": [
-            {
-              "type": "text",
-              "text": "📋 運動追蹤",
-              "weight": "bold",
-              "size": "sm",
-              "color": "#416743"
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "backgroundColor": "#E0E0E0",
-              "height": "6px",
-              "cornerRadius": "md",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "vertical",
-                  "backgroundColor": "#416743",
-                  "width": "50%",
-                  "contents": []
-                }
-              ]
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "margin": "sm",
-              "spacing": "xs",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "● 間歇跑 5 公里",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "link",
-                      "height": "sm",
-                      "color": "#A99A7E",
-                      "action": {
-                        "type": "postback",
-                        "label": "已完成",
-                        "data": "type=custom_tab_item&id=cmt5hv77c000cvpwsvxjdu2pq"
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ 晨間伸展 10 分鐘",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=custom_tab_item&id=cmt5hv77c000dvpws5x7kjl3w"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "layout": "vertical",
-          "spacing": "xs",
-          "contents": [
-            {
-              "type": "text",
-              "text": "🗂️ 作品集追蹤",
-              "weight": "bold",
-              "size": "sm",
-              "color": "#416743"
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "backgroundColor": "#E0E0E0",
-              "height": "6px",
-              "cornerRadius": "md",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "vertical",
-                  "backgroundColor": "#416743",
-                  "width": "50%",
-                  "contents": []
-                }
-              ]
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "margin": "sm",
-              "spacing": "xs",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ 寫一篇技術部落格",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=custom_board_item&id=cmt5hv7y2000hvpws3tamehuj"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "layout": "vertical",
-          "spacing": "xs",
-          "contents": [
-            {
-              "type": "text",
-              "text": "💻 前端小知識",
-              "weight": "bold",
-              "size": "sm",
-              "color": "#416743"
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "backgroundColor": "#E0E0E0",
-              "height": "6px",
-              "cornerRadius": "md",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "vertical",
-                  "backgroundColor": "#416743",
-                  "width": "60%",
-                  "contents": []
-                }
-              ]
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "margin": "sm",
-              "spacing": "xs",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ React x3 (含 TS)",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=task&title=React+x3+%28%E5%90%AB+TS%29"
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ Python / 面試題",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=task&title=Python+%2F+%E9%9D%A2%E8%A9%A6%E9%A1%8C"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "layout": "vertical",
-          "spacing": "xs",
-          "contents": [
-            {
-              "type": "text",
-              "text": "🏃 運動",
-              "weight": "bold",
-              "size": "sm",
-              "color": "#416743"
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "backgroundColor": "#E0E0E0",
-              "height": "6px",
-              "cornerRadius": "md",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "vertical",
-                  "backgroundColor": "#416743",
-                  "width": "100%",
-                  "contents": []
-                }
-              ]
-            },
-            {
-              "type": "box",
-              "layout": "vertical",
-              "margin": "sm",
-              "spacing": "xs",
-              "contents": [
-                {
-                  "type": "box",
-                  "layout": "horizontal",
-                  "alignItems": "center",
-                  "paddingAll": "sm",
-                  "backgroundColor": "#F5EFE6",
-                  "cornerRadius": "md",
-                  "contents": [
-                    {
-                      "type": "text",
-                      "text": "○ 超慢跑",
-                      "size": "sm",
-                      "flex": 1,
-                      "gravity": "center",
-                      "wrap": true
-                    },
-                    {
-                      "type": "button",
-                      "style": "primary",
-                      "height": "sm",
-                      "color": "#416743",
-                      "action": {
-                        "type": "postback",
-                        "label": "打卡",
-                        "data": "type=sport"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "button",
+        "style": "primary",
+        "color": "#416743",
+        "action": {
+          "type": "postback",
+          "label": "一鍵完成所有項目",
+          "data": "type=all_done"
         }
-      ]
+      }
+    ]
+  },
+  "styles": {
+    "body": {
+      "backgroundColor": "#FFFAF5"
     },
     "footer": {
-      "type": "box",
-      "layout": "vertical",
-      "contents": [
-        {
-          "type": "button",
-          "style": "primary",
-          "color": "#416743",
-          "action": {
-            "type": "postback",
-            "label": "一鍵完成所有項目",
-            "data": "type=all_done"
-          }
-        }
-      ]
-    },
-    "styles": {
-      "body": {
-        "backgroundColor": "#FFFAF5"
-      },
-      "footer": {
-        "backgroundColor": "#FFFAF5"
-      }
+      "backgroundColor": "#FFFAF5"
     }
   }
 }
