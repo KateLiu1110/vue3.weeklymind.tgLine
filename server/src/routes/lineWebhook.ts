@@ -230,9 +230,103 @@ async function checkinRun(userId: string) {
   return getWeeklyRunKm(userId)
 }
 
+// 打卡完成度要同步回 Plan.pct，不然網頁「計劃管理」頁的進度環只認網頁自己的「今日
+// 打卡」按鈕，LINE 這邊打卡完成度再高，網頁看起來還是 0%——兩邊資料各自為政，感覺
+// 像沒連動。透過 Plan.linkedCustomId 找回對應的計畫（見 core.ts 的 savePlan()）。
+async function syncPlanProgress(moduleId: string) {
+  const mod = await prisma.customModule.findUnique({
+    where: { id: moduleId },
+    include: {
+      dailyTasks: true,
+      tabCats: { include: { items: true } },
+      boardColumns: { include: { items: true } },
+    },
+  })
+  if (!mod) return
+
+  let pct = 0
+  if (mod.kind === 'goal' && mod.dailyTasks.length > 0) {
+    pct = Math.round((mod.dailyTasks.filter((t) => t.done).length / mod.dailyTasks.length) * 100)
+  } else if (mod.kind === 'tab') {
+    const items = mod.tabCats.flatMap((c) => c.items)
+    if (items.length > 0) pct = Math.round((items.filter((i) => i.done).length / items.length) * 100)
+  } else if (mod.kind === 'board') {
+    const total = mod.boardColumns.reduce((sum, c) => sum + c.items.length, 0)
+    const done = mod.boardColumns.find((c) => c.label === '已完成')?.items.length ?? 0
+    if (total > 0) pct = Math.round((done / total) * 100)
+  }
+
+  await prisma.plan.updateMany({ where: { linkedCustomId: moduleId }, data: { pct } })
+}
+
 // 「新增計畫」選目標模板時填的每日任務（見 services/line.ts 的 getCheckListFlex 動態區塊）。
 async function checkinCustomTask(userId: string, taskId: string) {
-  await prisma.customModuleDailyTask.updateMany({ where: { id: taskId, module: { userId } }, data: { done: true } })
+  const task = await prisma.customModuleDailyTask.findUnique({ where: { id: taskId }, include: { module: true } })
+  if (!task || task.module.userId !== userId) return
+  await prisma.customModuleDailyTask.update({ where: { id: taskId }, data: { done: true } })
+  await syncPlanProgress(task.moduleId)
+}
+
+// 「新增計畫」選 Tab 模板時填的分類清單項目，同一個動態區塊底下的另一種模板。
+async function checkinCustomTabItem(userId: string, itemId: string) {
+  const item = await prisma.customTabItem.findUnique({
+    where: { id: itemId },
+    include: { category: { include: { module: true } } },
+  })
+  if (!item || item.category.module.userId !== userId) return
+  await prisma.customTabItem.update({ where: { id: itemId }, data: { done: true } })
+  await syncPlanProgress(item.category.moduleId)
+}
+
+// 看板卡片沒有 done 欄位，「打卡」＝把卡片從待辦欄移到已完成欄（跟網頁看板拖曳到
+// 「已完成」欄是同一件事）。找不到卡片、或卡片不屬於這個使用者、或這個模組沒有
+// 「已完成」欄（理論上不會發生，見 customModules.ts 建立時的預設欄位）就直接跳過。
+async function checkinCustomBoardItem(userId: string, itemId: string) {
+  const item = await prisma.customBoardItem.findUnique({
+    where: { id: itemId },
+    include: { column: { include: { module: true } } },
+  })
+  if (!item || item.column.module.userId !== userId) return
+  const doneColumn = await prisma.customBoardColumn.findFirst({
+    where: { moduleId: item.column.moduleId, label: '已完成' },
+  })
+  if (!doneColumn) return
+  const doneCount = await prisma.customBoardItem.count({ where: { columnId: doneColumn.id } })
+  await prisma.customBoardItem.update({ where: { id: itemId }, data: { columnId: doneColumn.id, order: doneCount } })
+  await syncPlanProgress(item.column.moduleId)
+}
+
+// 「一鍵完成所有項目」把所有看板模組「待辦」欄的卡片都移到「已完成」欄，跟上面
+// 單張卡片的邏輯一樣，只是要一次處理多個模組、多張卡片，且要維持各自的欄內順序。
+async function checkinAllBoardItems(userId: string) {
+  const boardModules = await prisma.customModule.findMany({
+    where: { userId, kind: 'board' },
+    include: { boardColumns: { include: { items: true } } },
+  })
+  for (const mod of boardModules) {
+    const todoColumn = mod.boardColumns.find((c) => c.label === '待辦')
+    const doneColumn = mod.boardColumns.find((c) => c.label === '已完成')
+    if (!todoColumn || !doneColumn || todoColumn.items.length === 0) continue
+    let order = doneColumn.items.length
+    for (const item of todoColumn.items) {
+      await prisma.customBoardItem.update({ where: { id: item.id }, data: { columnId: doneColumn.id, order: order++ } })
+    }
+    await syncPlanProgress(mod.id)
+  }
+}
+
+// 一鍵完成用 updateMany 一次改完所有目標/Tab 模組的任務，事後要各自重算 pct 同步回
+// 對應的 Plan（不能在 updateMany 裡順便做，Prisma 的 updateMany 不會回傳改了哪些列）。
+async function checkinAllGoalTasks(userId: string) {
+  const modules = await prisma.customModule.findMany({ where: { userId, kind: 'goal' }, select: { id: true } })
+  await prisma.customModuleDailyTask.updateMany({ where: { done: false, module: { userId, kind: 'goal' } }, data: { done: true } })
+  await Promise.all(modules.map((m) => syncPlanProgress(m.id)))
+}
+
+async function checkinAllTabItems(userId: string) {
+  const modules = await prisma.customModule.findMany({ where: { userId, kind: 'tab' }, select: { id: true } })
+  await prisma.customTabItem.updateMany({ where: { done: false, category: { module: { userId, kind: 'tab' } } }, data: { done: true } })
+  await Promise.all(modules.map((m) => syncPlanProgress(m.id)))
 }
 
 async function checkinAll(userId: string) {
@@ -248,7 +342,9 @@ async function checkinAll(userId: string) {
     checkinLearningTask(userId, 'React x3 (含 TS)'),
     checkinLearningTask(userId, 'Python / 面試題'),
     checkinRun(userId),
-    prisma.customModuleDailyTask.updateMany({ where: { done: false, module: { userId, kind: 'goal' } }, data: { done: true } }),
+    checkinAllGoalTasks(userId),
+    checkinAllTabItems(userId),
+    checkinAllBoardItems(userId),
   ])
 }
 
@@ -289,6 +385,18 @@ async function handlePostback(userId: string, replyToken: string, data: string) 
       const taskId = params.get('id')
       if (taskId) await checkinCustomTask(userId, taskId)
       await replyMessages(replyToken, [textMessage('✅ 已記錄，繼續保持 💪')])
+      return
+    }
+    case 'custom_tab_item': {
+      const itemId = params.get('id')
+      if (itemId) await checkinCustomTabItem(userId, itemId)
+      await replyMessages(replyToken, [textMessage('✅ 已記錄，繼續保持 💪')])
+      return
+    }
+    case 'custom_board_item': {
+      const itemId = params.get('id')
+      if (itemId) await checkinCustomBoardItem(userId, itemId)
+      await replyMessages(replyToken, [textMessage('✅ 已移到已完成，繼續保持 💪')])
       return
     }
     case 'all_done': {

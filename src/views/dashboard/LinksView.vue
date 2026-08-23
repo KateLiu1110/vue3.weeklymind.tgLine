@@ -50,7 +50,7 @@ function submitLink() {
     <LockedFeature
       v-if="isLocked"
       title="連結收藏尚未解鎖"
-      :hint="!auth.isLoggedIn ? '登入並新增第一個計畫即可解鎖' : '新增第一個計畫即可解鎖這個工具'"
+      hint="這個工具還在整理，之後開放時會通知你"
     />
     <template v-else>
       <div class="flex items-center justify-between mb-4 gap-4 flex-wrap">

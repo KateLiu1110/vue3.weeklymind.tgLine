@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../db.js'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
 import { requireAuth } from '../middleware/auth.js'
+import { notifyNewTask } from '../services/line.js'
 
 export const customModulesRouter = Router()
 customModulesRouter.use(requireAuth)
@@ -139,11 +140,36 @@ const modulePutSchema = z.object({
 // 前端把整個模組（含巢狀子項目）當一份文件編輯，所以這裡整包 PUT 覆寫：更新純量欄位，
 // 每個子集合先清空再依前端目前的陣列順序重建。畫面上任何一個小動作（打勾、刪一筆、
 // 拖曳看板卡片）都是呼叫這支，不做逐項的細粒度 API。
+// 「在計畫中新增任務才需要推播」：比較這次存檔前後、跟這個模組 kind 相關的項目名稱
+// 清單（目標看 dailyTasks 的 title、Tab／看板看所有子集合裡 items 的 name），存檔後
+// 比存檔前多出來的名字才是真的「新增」的任務，單純編輯／刪除／打勾都不算，不會誤發
+// 通知；同時把新任務的名字直接放進推播卡片，讓「LINE 推播要打卡事項」名符其實——
+// 不是只講「這個計畫有更新」，是講「這幾項可以打卡了」。
+function getRelevantNames(kind: string, source: { dailyTasks?: { title: string }[]; tabCats?: { items?: { name: string }[] }[]; boardColumns?: { items?: { name: string }[] }[] }): string[] {
+  if (kind === 'goal') return (source.dailyTasks ?? []).map((t) => t.title)
+  if (kind === 'tab') return (source.tabCats ?? []).flatMap((c) => (c.items ?? []).map((i) => i.name))
+  if (kind === 'board') return (source.boardColumns ?? []).flatMap((c) => (c.items ?? []).map((i) => i.name))
+  return []
+}
+
 customModulesRouter.put('/:id', async (req, res, next) => {
   try {
     const body = modulePutSchema.parse(req.body)
-    const existing = await prisma.customModule.findUnique({ where: { id: req.params.id } })
+    const existing = await prisma.customModule.findUnique({
+      where: { id: req.params.id },
+      include: {
+        dailyTasks: { select: { title: true } },
+        tabCats: { include: { items: { select: { name: true } } } },
+        boardColumns: { include: { items: { select: { name: true } } } },
+      },
+    })
     if (!existing || existing.userId !== req.userId) throw ApiBusinessError.notFound('CustomModule')
+
+    const oldNames = getRelevantNames(existing.kind, existing)
+    const newNames = getRelevantNames(existing.kind, body)
+    // 前端新增任務時是用 push() 加到陣列尾端，所以新項目基本上都落在後面；用「數量
+    // 變多的部分」取新項目的名字，比逐一比對名字集合簡單，對這裡的用途夠準了。
+    const addedNames = newNames.length > oldNames.length ? newNames.slice(oldNames.length) : []
 
     const { dailyTasks, scores, examDates, boardColumns, tabCats, ...scalars } = body
     const moduleId = req.params.id
@@ -198,6 +224,8 @@ customModulesRouter.put('/:id', async (req, res, next) => {
 
     const updated = await prisma.customModule.findUniqueOrThrow({ where: { id: moduleId }, include: moduleInclude })
     res.json({ ok: true, data: toModulePayload(updated) })
+
+    if (addedNames.length > 0) void notifyNewTask(req.userId, existing.title, existing.kind, addedNames)
   } catch (err) {
     next(err)
   }

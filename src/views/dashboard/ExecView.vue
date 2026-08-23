@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
-import { useCoreStore } from '@/stores/core'
+import { useCoreStore, type Plan } from '@/stores/core'
 import { useExecStore } from '@/stores/exec'
 import { usePlanMutations } from '@/composables/usePlans'
 import { useStreak } from '@/composables/useStreak'
@@ -22,6 +22,18 @@ const streakDays = computed(() => streakQuery.data.value ?? 0)
 function checkin(planId: string) {
   if (!auth.requireLogin()) return
   checkinPlanMutation.mutate(planId)
+}
+
+/** 計畫剛新增、底下自訂模組還沒填任何任務時，不該讓人打卡（沒有東西可以打——跟
+ * LINE 每日卡片的邏輯一致，見 services/line.ts 的 getCheckListFlex 動態區塊：
+ * 空模組顯示提示文字，不是打卡按鈕）。 */
+function planTaskCount(plan: Plan): number {
+  const mod = core.customModules.find((m) => m.id === plan.linkedCustomId)
+  if (!mod) return 0
+  if (mod.kind === 'goal') return mod.dailyTasks.length
+  if (mod.kind === 'tab') return mod.tabCats.reduce((sum, c) => sum + c.items.length, 0)
+  if (mod.kind === 'board') return mod.boardColumns.reduce((sum, c) => sum + c.items.length, 0)
+  return 0
 }
 
 const hasExecData = computed(() => core.plans.length > 0 || exec.todayTasks.length > 0)
@@ -187,7 +199,8 @@ const stageBarOptions: ChartOptions<'bar'> = {
         <span class="text-xs font-medium text-ink-800">分類每日進度</span>
         <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="exec.openExecCatModal()">＋ 新增分類</span>
       </div>
-      <div class="flex flex-col gap-2.5 mt-2.5">
+      <p v-if="exec.catProgress.length === 0" class="m-0 mt-2.5 text-xs text-sand-400">尚無分類，點擊「＋ 新增分類」建立第一筆</p>
+      <div v-else class="flex flex-col gap-2.5 mt-2.5">
         <div v-for="c in exec.catProgress" :key="c.id">
           <div class="flex justify-between items-center text-xs text-ink-700 mb-1">
             <span>{{ c.name }}</span>
@@ -270,13 +283,16 @@ const stageBarOptions: ChartOptions<'bar'> = {
             <div class="h-full rounded-full" :style="{ width: p.pct + '%', background: p.color }" />
           </div>
           <button
+            v-if="planTaskCount(p) > 0"
             type="button"
-            class="block w-full text-center mt-3 py-2.5 rounded-control bg-brand-primary text-white text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full flex items-center justify-center gap-1.5 mt-3 py-2.5 rounded-control bg-brand-primary text-white text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="checkinPlanMutation.isPending.value"
             @click="checkin(p.id)"
           >
+            <Icon v-if="checkinPlanMutation.isPending.value" name="refresh" :size="12" class="animate-spin" />
             ✓ 今日打卡（已 {{ p.checkinsDone }} 次）
           </button>
+          <p v-else class="m-0 mt-3 py-2.5 text-xs text-sand-400 text-center">新增任務後才能打卡</p>
         </div>
       </template>
       <div v-else class="rounded-card p-6.5 text-center text-sand-400 bg-cream-50 border border-cream-150">
