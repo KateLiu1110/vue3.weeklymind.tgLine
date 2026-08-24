@@ -4,11 +4,18 @@ import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore } from '@/stores/core'
 import { useAuthStore } from '@/stores/auth'
 import { updatePreferences } from '@/api/client/preferences'
+import { useAchievements } from '@/composables/useAchievements'
+import { ACHIEVEMENT_KEYS } from '@/api/client/achievements'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
+import LockedFeature from '@/components/common/LockedFeature.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const core = useCoreStore()
 const auth = useAuthStore()
+const achievementsQuery = useAchievements()
+const isLocked = computed(
+  () => !auth.isLoggedIn || !(achievementsQuery.data.value ?? []).includes(ACHIEVEMENT_KEYS.linebot),
+)
 
 async function setBotLang(lang: string) {
   if (!auth.requireLogin()) return
@@ -77,7 +84,9 @@ const weeklyReviewOptions: ChartOptions<'bar'> = {
 </script>
 
 <template>
-  <div class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-5 items-start">
+  <div>
+    <LockedFeature v-if="isLocked" title="LineBot 設定尚未解鎖" hint="這個工具還在整理，之後開放時會通知你" />
+  <div v-else class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-5 items-start">
     <div class="flex flex-col gap-4">
       <!-- 提醒事項 -->
       <div class="bg-cream-50 border border-cream-150 rounded-card p-5">
@@ -258,5 +267,6 @@ const weeklyReviewOptions: ChartOptions<'bar'> = {
         </div>
       </div>
     </div>
+  </div>
   </div>
 </template>

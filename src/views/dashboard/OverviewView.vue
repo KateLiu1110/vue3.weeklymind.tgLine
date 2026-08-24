@@ -620,10 +620,11 @@ const monthTopMilestone = computed(() =>
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeMilestoneModal()">取消</button>
         <button
           type="button"
-          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
           :disabled="core.milestoneSaving"
           @click="core.saveMilestone()"
         >
+          <Icon v-if="core.milestoneSaving" name="refresh" :size="14" class="animate-spin" />
           {{ core.milestoneSaving ? '儲存中…' : '儲存' }}
         </button>
       </div>

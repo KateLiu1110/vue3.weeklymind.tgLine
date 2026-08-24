@@ -1,4 +1,4 @@
-import type { Milestone, Plan } from '@/stores/core'
+import type { CustomModule, CustomModuleKind, Milestone, Plan } from '@/stores/core'
 
 export interface ApiSuccess<T> {
   ok: true
@@ -18,3 +18,10 @@ export type PlanUpdateInput = Partial<PlanCreateInput>
 
 export type MilestoneCreateInput = Omit<Milestone, 'id'>
 export type MilestoneUpdateInput = Partial<MilestoneCreateInput>
+
+export interface CustomModuleCreateInput {
+  kind: CustomModuleKind
+  title: string
+  heroTitle?: string
+}
+export type CustomModuleUpdateInput = Omit<CustomModule, 'id' | 'kind' | 'activeTabCatId'>

@@ -7,6 +7,9 @@ import { useAuthStore } from '@/stores/auth'
 import { fetchMe } from '@/api/client/auth'
 import { usePlans } from '@/composables/usePlans'
 import { useMilestones } from '@/composables/useMilestones'
+import { useCustomModules } from '@/composables/useCustomModules'
+import { updateCustomModule } from '@/api/client/customModules'
+import type { CustomModuleUpdateInput } from '@/types/api'
 import { useAchievements } from '@/composables/useAchievements'
 import { useStreak } from '@/composables/useStreak'
 import { useToeicMutations } from '@/composables/useToeic'
@@ -61,21 +64,69 @@ watch(
 // fetch so every consumer (Overview, ExecView, sidebar) keeps working unchanged.
 // 訪客（未登入）沒有 token，usePlans/useMilestones 內建的 enabled 判斷不會發出請求，
 // 畫面自然呈現空狀態，不需要另外的「示範空白帳號」開關。
+// 下面三個 watch 都只在本地陣列還是空的時候才套用 query 回來的資料——避免「送出
+// 新增」跟「頁面剛載入時那次初始 GET」互搶：GET 如果比新增動作晚回來，回應內容是
+// 新增前的舊資料（通常是空陣列），這種情況下套用下去會把剛建立、還沒被這次 query
+// 看到的項目蓋掉（實測會發生，尤其後端回應慢的時候）。
 const plansQuery = usePlans()
 const milestonesQuery = useMilestones()
 watch(
   () => plansQuery.data.value,
   (plans) => {
-    if (plans) core.hydratePlans(plans)
+    if (plans && core.plans.length === 0) core.hydratePlans(plans)
   },
   { immediate: true },
 )
 watch(
   () => milestonesQuery.data.value,
   (milestones) => {
-    if (milestones) core.hydrateMilestones(milestones)
+    if (milestones && core.milestones.length === 0) core.hydrateMilestones(milestones)
   },
   { immediate: true },
+)
+const customModulesQuery = useCustomModules()
+watch(
+  () => customModulesQuery.data.value,
+  (modules) => {
+    if (modules && core.customModules.length === 0) core.hydrateCustomModules(modules)
+  },
+  { immediate: true },
+)
+// 自訂模組（目標／看板／Tab 模板）的內容編輯目前都是直接改 Pinia state（v-model、
+// @click 裡的陣列 push/filter），沒有一個個包成 API mutation；改用整包 deep watch +
+// debounce 存檔，任何畫面上的小動作最後都會落地到後端，不用逐一去改三個模板元件。
+let customModuleSaveTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => core.customModules,
+  () => {
+    if (!auth.isLoggedIn) return
+    clearTimeout(customModuleSaveTimer)
+    customModuleSaveTimer = setTimeout(() => {
+      for (const mod of core.customModules) {
+        const content: CustomModuleUpdateInput = {
+          title: mod.title,
+          heroTitle: mod.heroTitle,
+          heroDesc: mod.heroDesc,
+          heroSchedule: mod.heroSchedule,
+          heroCurrent: mod.heroCurrent,
+          heroTarget: mod.heroTarget,
+          examTitle: mod.examTitle,
+          scoreTitle: mod.scoreTitle,
+          lastLabel: mod.lastLabel,
+          lastScore: mod.lastScore,
+          targetLabel: mod.targetLabel,
+          targetScore: mod.targetScore,
+          dailyTasks: mod.dailyTasks,
+          scores: mod.scores,
+          examDates: mod.examDates,
+          boardColumns: mod.boardColumns,
+          tabCats: mod.tabCats,
+        }
+        updateCustomModule(mod.id, content).catch((err) => console.error('[custom-module] 自動存檔失敗', err))
+      }
+    }, 600)
+  },
+  { deep: true },
 )
 const apiUnreachable = computed(
   () => auth.isLoggedIn && (plansQuery.isError.value || milestonesQuery.isError.value),
@@ -109,14 +160,14 @@ const toolNavItems = [
   { name: 'retro', label: '覆盤中心', icon: 'chart', achievementKey: ACHIEVEMENT_KEYS.retro },
 ]
 const achievementsQuery = useAchievements()
-function isToolLocked(key: string): boolean {
-  return auth.isLoggedIn && !(achievementsQuery.data.value ?? []).includes(key)
+function isToolLocked(key: string | null): boolean {
+  return !!key && auth.isLoggedIn && !(achievementsQuery.data.value ?? []).includes(key)
 }
 const streakQuery = useStreak()
 const streakDays = computed(() => streakQuery.data.value ?? 0)
 const systemNavItems = [
-  { name: 'settings', label: '設定', icon: 'gear' },
-  { name: 'linebot', label: 'LineBot 設定', icon: 'navChat' },
+  { name: 'settings', label: '設定', icon: 'gear', achievementKey: null as string | null },
+  { name: 'linebot', label: 'LineBot 設定', icon: 'navChat', achievementKey: ACHIEVEMENT_KEYS.linebot as string | null },
 ]
 
 const PAGE_TITLES: Record<string, string> = {
@@ -251,8 +302,10 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
         :class="sidebarCollapsed ? 'justify-center' : ''"
         active-class="bg-brand-primary text-white"
       >
-        <Icon :name="item.icon" :size="16" />
-        <span v-if="!sidebarCollapsed" class="whitespace-nowrap">{{ item.label }}</span>
+        <Icon :name="isToolLocked(item.achievementKey) ? 'lock' : item.icon" :size="16" />
+        <span v-if="!sidebarCollapsed" class="flex-1 whitespace-nowrap" :class="isToolLocked(item.achievementKey) ? 'text-sand-400' : ''">
+          {{ item.label }}
+        </span>
       </RouterLink>
 
       <div
@@ -389,10 +442,11 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closePlanModal()">取消</button>
         <button
           type="button"
-          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
           :disabled="core.planSaving"
           @click="core.savePlan()"
         >
+          <Icon v-if="core.planSaving" name="refresh" :size="14" class="animate-spin" />
           {{ core.planSaving ? '新增中…' : '新增' }}
         </button>
       </div>

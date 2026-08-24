@@ -55,6 +55,7 @@ model User {
   focusTasks        FocusTask[]
   growthGoals       GrowthGoal[]
   smallAchievements SmallAchievement[]
+  customModules     CustomModule[]
 }
 
 model Plan {
@@ -125,28 +126,28 @@ model SavedLink {
 
 // LINE Bot: 使用者傳「跑了5公里」之類的訊息時記錄的運動打卡。
 model SportLog {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id])
-  category    SportCategory
-  detail      String?
-  distanceKm  Decimal?
-  loggedAt    DateTime      @default(now())
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  category   SportCategory
+  detail     String?
+  distanceKm Decimal?
+  loggedAt   DateTime      @default(now())
 
   @@index([userId])
 }
 
 // LINE Bot: 多益每日打卡（背單字/閱讀測驗/克漏字/對話），一個使用者一天一筆。
 model ToeicProgress {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  date          DateTime
-  vocabDone     Boolean  @default(false)
-  readingDone   Boolean  @default(false)
-  clozeDone     Boolean  @default(false)
-  dialogueDone  Boolean  @default(false)
-  textbookPct   Int      @default(0)
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  date         DateTime
+  vocabDone    Boolean  @default(false)
+  readingDone  Boolean  @default(false)
+  clozeDone    Boolean  @default(false)
+  dialogueDone Boolean  @default(false)
+  textbookPct  Int      @default(0)
 
   @@unique([userId, date])
 }
@@ -322,4 +323,122 @@ model SmallAchievement {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// 「新增計畫」時選的自訂模組頁面（目標／看板／Tab 三種模板之一，見 PLAN_TEMPLATE_CARDS）。
+// 一個 Plan 永遠對應一個 CustomModule（Plan.linkedCustomId），這裡存的是模板頁面實際填的
+// 內容（每日任務／看板卡片／分頁清單……），在這張表加進來之前這些內容只存在前端記憶體，
+// 重新整理就消失。前端整包（含巢狀子項目）一起 PUT 儲存，不做逐欄位的細粒度 API。
+model CustomModule {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  kind         String // 'goal' | 'board' | 'tab'
+  title        String
+  heroTitle    String   @default("")
+  heroDesc     String   @default("")
+  heroSchedule String   @default("")
+  heroCurrent  String   @default("0")
+  heroTarget   String   @default("")
+  examTitle    String   @default("考試天數")
+  scoreTitle   String   @default("分數紀錄")
+  lastLabel    String   @default("")
+  lastScore    String   @default("")
+  targetLabel  String   @default("")
+  targetScore  String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dailyTasks   CustomModuleDailyTask[]
+  scores       CustomModuleScore[]
+  examDates    CustomModuleExamDate[]
+  boardColumns CustomBoardColumn[]
+  tabCats      CustomTabCategory[]
+
+  @@index([userId])
+}
+
+// goal 模板：每日任務打卡清單（LINE 每日 08:00 卡片動態讀這裡，見 services/line.ts）。
+model CustomModuleDailyTask {
+  id       String       @id @default(cuid())
+  moduleId String
+  module   CustomModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title    String
+  done     Boolean      @default(false)
+  order    Int          @default(0)
+
+  @@index([moduleId])
+}
+
+// goal 模板：模考分數紀錄。
+model CustomModuleScore {
+  id       String       @id @default(cuid())
+  moduleId String
+  module   CustomModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  label    String
+  value    Int          @default(0)
+  order    Int          @default(0)
+
+  @@index([moduleId])
+}
+
+// goal 模板：考試日期。
+model CustomModuleExamDate {
+  id       String       @id @default(cuid())
+  moduleId String
+  module   CustomModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title    String
+  date     String
+  order    Int          @default(0)
+
+  @@index([moduleId])
+}
+
+// board 模板：看板欄位（待辦／進行中／已完成，可增刪）。
+model CustomBoardColumn {
+  id        String            @id @default(cuid())
+  moduleId  String
+  module    CustomModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  label     String
+  deletable Boolean           @default(true)
+  order     Int               @default(0)
+  items     CustomBoardItem[]
+
+  @@index([moduleId])
+}
+
+model CustomBoardItem {
+  id       String            @id @default(cuid())
+  columnId String
+  column   CustomBoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  name     String
+  caption  String            @default("")
+  order    Int               @default(0)
+
+  @@index([columnId])
+}
+
+// tab 模板：分類分頁（跟上面 SportCategoryTab 是不同概念——那個是「運動」內建頁專用，
+// 這個是使用者自訂 Tab 模板頁面用的）。
+model CustomTabCategory {
+  id        String          @id @default(cuid())
+  moduleId  String
+  module    CustomModule    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  label     String
+  deletable Boolean         @default(true)
+  order     Int             @default(0)
+  items     CustomTabItem[]
+
+  @@index([moduleId])
+}
+
+model CustomTabItem {
+  id         String            @id @default(cuid())
+  categoryId String
+  category   CustomTabCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name       String
+  done       Boolean           @default(false)
+  order      Int               @default(0)
+
+  @@index([categoryId])
 }

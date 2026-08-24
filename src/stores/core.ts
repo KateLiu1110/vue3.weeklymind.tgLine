@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import { createPlan, deletePlan } from '@/api/client/plans'
 import { createMilestone } from '@/api/client/milestones'
+import {
+  createCustomModule as apiCreateCustomModule,
+  deleteCustomModule as apiDeleteCustomModule,
+} from '@/api/client/customModules'
 import { useAuthStore } from '@/stores/auth'
 import { queryClient } from '@/plugins/queryClient'
 import { queryKeys } from '@/api/queryKeys'
@@ -120,38 +124,6 @@ export const PLAN_TEMPLATE_CARDS: { kind: CustomModuleKind; icon: string; label:
   { kind: 'tab', icon: 'templateTab', label: 'Tab模板', desc: '如：運動 — 分類分頁 + 清單打卡' },
 ]
 
-function createBlankCustomModule(kind: CustomModuleKind, title: string): CustomModule {
-  return {
-    id: 'cm' + Date.now() + Math.random().toString(16).slice(2),
-    title,
-    kind,
-    heroTitle: '',
-    heroDesc: '',
-    heroSchedule: '',
-    heroCurrent: '0',
-    heroTarget: '',
-    dailyTasks: [],
-    scores: [],
-    examTitle: '考試天數',
-    examDates: [],
-    scoreTitle: '分數紀錄',
-    lastLabel: '',
-    lastScore: '',
-    targetLabel: '',
-    targetScore: '',
-    boardColumns:
-      kind === 'board'
-        ? [
-            { id: 'col-todo', label: '待辦', deletable: false, items: [] },
-            { id: 'col-doing', label: '進行中', deletable: false, items: [] },
-            { id: 'col-done', label: '已完成', deletable: false, items: [] },
-          ]
-        : [],
-    tabCats: kind === 'tab' ? [{ id: 'cat-1', label: '分類 1', deletable: false, items: [] }] : [],
-    activeTabCatId: kind === 'tab' ? 'cat-1' : null,
-  }
-}
-
 const PLAN_COLOR_PALETTE = ['#ffb21d', '#c9a876', '#2f6bd8', '#b08968']
 
 // There's no real auth backend yet, so login/register simulate the two account
@@ -250,25 +222,29 @@ export const useCoreStore = defineStore('core', {
     },
   },
   actions: {
-    createCustomModule(kind: CustomModuleKind, title: string) {
-      const mod = createBlankCustomModule(kind, title)
-      this.customModules.push(mod)
+    // 建立時直接打 API，拿後端真正的 id 回來——不再用 client 端亂數 id 塞一個假模組，
+    // 這樣模組底下的內容（每日任務／看板卡片／分頁清單）才有地方能存住，見 savePlan()。
+    async createCustomModule(kind: CustomModuleKind, title: string) {
+      const mod = await apiCreateCustomModule({ kind, title, heroTitle: kind === 'goal' ? title : undefined })
+      // 用重新賦值而不是 .push()，理由同 savePlan() 那則註解。
+      this.customModules = [...this.customModules, mod]
       this.activeCustomId = mod.id
       return mod
     },
-    deleteCustomModule(id: string) {
+    async deleteCustomModule(id: string) {
       if (!useAuthStore().requireLogin()) return
       this.customModules = this.customModules.filter((m) => m.id !== id)
       if (this.activeCustomId === id) {
         this.activeCustomId = this.customModules[0]?.id ?? null
       }
+      await apiDeleteCustomModule(id)
     },
     /** 側邊欄「目標計畫」的刪除入口：一個計畫永遠對應一個自訂模組頁面（見 savePlan），
      * 兩邊要一起刪，不然會留下沒有計畫的空模組、或計畫列表裡點不進去的殭屍項目。 */
     async deletePlanAndModule(customModuleId: string) {
       if (!useAuthStore().requireLogin()) return
       const plan = this.plans.find((p) => p.linkedCustomId === customModuleId)
-      this.deleteCustomModule(customModuleId)
+      await this.deleteCustomModule(customModuleId)
       if (plan) await this.removePlan(plan.id)
     },
     /** Called once per login/logout transition (see DashboardLayout) to clear out
@@ -279,11 +255,26 @@ export const useCoreStore = defineStore('core', {
       this.customModules = []
       this.activeCustomId = null
     },
+    // 這三支的參數都來自 TanStack Query 的 query.data（見 DashboardLayout 呼叫端）。
+    // @tanstack/vue-query 預設把整個 query state（含 data）包一層 Vue 的 readonly()，
+    // 如果直接把這個參照塞進 Pinia state，後面任何對巢狀陣列的 .push()／.splice() 都會
+    // 因為底層還是同一個唯讀 Proxy 而失敗（實測會噴「target is readonly」的警告，看板
+    // 模板「新增任務」踩到過）。這裡要深拷貝一份乾淨、完全可寫的資料，徹底切斷跟 query
+    // cache 的參照關係——但 structuredClone 對 Vue 的 readonly Proxy 會直接丟
+    // 「could not be cloned」（瀏覽器原生的結構化複製認不得 Proxy 包過的 Array/Object），
+    // 改用 JSON round-trip：JSON.stringify 是透過一般的屬性存取讀資料，會正確穿過
+    // Proxy 的 getter，不會踩到同樣的問題。這裡的資料本來就是 API 回應轉出來的純
+    // JSON，不含 Date/函式，用 JSON round-trip 沒有資訊遺失的疑慮。
     hydratePlans(plans: Plan[]) {
-      this.plans = plans
+      this.plans = JSON.parse(JSON.stringify(plans))
     },
     hydrateMilestones(milestones: Milestone[]) {
-      this.milestones = milestones
+      this.milestones = JSON.parse(JSON.stringify(milestones))
+    },
+    // 只在頁面掛載時整批覆蓋一次（見 DashboardLayout）；畫面編輯期間的自動存檔走另一條
+    // debounce 的 PUT，不會再呼叫這支蓋掉正在編輯的內容。
+    hydrateCustomModules(modules: CustomModule[]) {
+      this.customModules = JSON.parse(JSON.stringify(modules))
     },
     setBotPlatform(platform: BotPlatform) {
       this.botPlatform = platform
@@ -338,14 +329,22 @@ export const useCoreStore = defineStore('core', {
       }
       const title = this.planForm.title.trim()
       const color = PLAN_COLOR_PALETTE[this.plans.length % PLAN_COLOR_PALETTE.length]
-      // A plan always drives a matching custom-module page (的 目標/看板/Tab 模板),
-      // mirroring how the design source's plan-template picker unlocks a page.
-      const mod = createBlankCustomModule(this.planForm.template, title)
-      if (mod.kind === 'goal') mod.heroTitle = title
-      this.customModules.push(mod)
-      this.activeCustomId = mod.id
       this.planSaving = true
       this.planError = ''
+
+      // A plan always drives a matching custom-module page (的 目標/看板/Tab 模板),
+      // mirroring how the design source's plan-template picker unlocks a page.
+      // 建立這個模組要先打 API 拿真正的後端 id，這樣它底下的內容才有地方存——
+      // 不能再像以前一樣純本地造一個假 id。
+      let mod: CustomModule
+      try {
+        mod = await this.createCustomModule(this.planForm.template, title)
+      } catch {
+        this.planError = '新增失敗，請確認後端伺服器（server/）是否已啟動'
+        this.planSaving = false
+        return
+      }
+
       try {
         const plan = await createPlan({
           title,
@@ -359,14 +358,17 @@ export const useCoreStore = defineStore('core', {
           endTime: this.planForm.endTime,
           linkedCustomId: mod.id,
         })
-        this.plans.push(plan)
+        // 用重新賦值而不是 .push()：這兩個 await（先建 CustomModule 再建 Plan）之間
+        // 隔了網路請求，這個環境下 reactive array 在 await 之後用 .push() 有時不會
+        // 觸發更新（length 讀回來還是 0，實測過），重新賦值一律可靠。
+        this.plans = [...this.plans, plan]
         this.planModalOpen = false
         // 新增第一個計畫是「連結收藏」的解鎖條件之一，讓側邊欄鎖定狀態跟著更新。
         queryClient.invalidateQueries({ queryKey: queryKeys.achievements.all })
       } catch {
-        // Roll back the local module so a failed save doesn't leave an orphaned
-        // sidebar entry with no plan behind it.
-        this.customModules = this.customModules.filter((m) => m.id !== mod.id)
+        // Roll back the already-created module so a failed plan save doesn't leave
+        // an orphaned sidebar entry (and orphaned backend row) with no plan behind it.
+        await this.deleteCustomModule(mod.id)
         this.planError = '新增失敗，請確認後端伺服器（server/）是否已啟動'
       } finally {
         this.planSaving = false
@@ -402,7 +404,9 @@ export const useCoreStore = defineStore('core', {
           color,
           module: this.milestoneForm.module || 'overview',
         })
-        this.milestones.push(milestone)
+        // 用重新賦值而不是 .push()，理由同 savePlan() 那則註解——同樣是 await 之後
+        // 才更新陣列，會踩到一樣的問題。
+        this.milestones = [...this.milestones, milestone]
         this.milestoneModalOpen = false
       } catch {
         this.milestoneError = '新增失敗，請確認後端伺服器（server/）是否已啟動'

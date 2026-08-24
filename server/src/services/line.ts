@@ -1,7 +1,7 @@
 import { messagingApi } from '@line/bot-sdk'
 import type { LinkPlatform } from '@prisma/client'
 import { prisma } from '../db.js'
-import { t, M, type BotLang } from './lineMessages.js'
+import { t, M, normalizeBotLang, type BotLang } from './lineMessages.js'
 
 export const lineClient = new messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '',
@@ -110,42 +110,172 @@ export function buildLinkClassificationFlex(params: {
   return { type: 'flex', altText: `已收藏連結並歸類為「${category}」`, contents: bubble }
 }
 
-function taskRow(params: { label: string; done: boolean; data: string }): messagingApi.FlexBox {
+const NEW_PLAN_KIND_KEY = {
+  goal: 'newPlanKindGoal',
+  board: 'newPlanKindBoard',
+  tab: 'newPlanKindTab',
+} as const satisfies Record<string, keyof typeof M>
+
+/** 計畫底下的任務有異動（新增，或修改現有任務的名稱／內容）時推播的卡片。故意不放
+ * 在「新增計畫」那步——空計畫還沒有東西可以打卡，太早推播只是噪音；等使用者實際
+ * 新增或修改任務，才是「後台新增計畫和任務」這件事真正該讓 LINE 看得到的時間點
+ * （見 routes/customModules.ts 的 PUT，比較前後項目名稱決定要不要呼叫這支）。
+ * 標題依「有沒有新增」決定：只要有新增就用「新任務已加入」（就算同時也有修改），
+ * 純修改沒有新增才用比較中性的「打卡事項已更新」。 */
+function buildNewTaskFlex(params: { title: string; kind: string; added: string[]; modified: string[]; lang: BotLang }): messagingApi.FlexMessage {
+  const kindKey = NEW_PLAN_KIND_KEY[params.kind as keyof typeof NEW_PLAN_KIND_KEY]
+  const kindLabel = kindKey ? t(params.lang, kindKey) : params.kind
+  const headline = params.added.length > 0 ? t(params.lang, 'newTaskTitle') : t(params.lang, 'taskUpdatedTitle')
+
+  // ☐ 新增的項目（現在可以打卡了）、✎ 修改的項目（內容變了，狀態不受影響）——
+  // 兩種變化用不同符號區分，不用另外分兩個區塊。
+  const taskLines = [
+    ...params.added.map((name) => ({ mark: '☐', name })),
+    ...params.modified.map((name) => ({ mark: '✎', name })),
+  ]
+
+  const bubble: messagingApi.FlexBubble = {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '20px',
+      spacing: 'sm',
+      contents: [
+        { type: 'text', text: headline, weight: 'bold', size: 'lg' },
+        {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#EEF3EA',
+          cornerRadius: '10px',
+          paddingAll: '14px',
+          margin: 'md',
+          spacing: 'xs',
+          contents: [
+            { type: 'text', text: params.title, weight: 'bold', size: 'md', color: '#416743', wrap: true },
+            { type: 'text', text: kindLabel, size: 'xs', color: '#7C9473' },
+          ],
+        },
+        // 這裡直接列出打卡事項本身，不是只講「計畫有更新」——推播的重點是
+        // 「這幾項現在可以打卡了／內容變成這樣了」。
+        {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'xs',
+          margin: 'md',
+          contents: taskLines.map(({ mark, name }) => ({
+            type: 'text' as const,
+            text: `${mark} ${name}`,
+            size: 'sm' as const,
+            color: '#3A2E1E',
+            wrap: true,
+          })),
+        },
+        { type: 'text', text: t(params.lang, 'newTaskHint'), size: 'xs', color: '#A99A7E', wrap: true, margin: 'md' },
+      ],
+    },
+    styles: { body: { backgroundColor: '#FFFAF5' } },
+  }
+
+  return { type: 'flex', altText: headline, contents: bubble }
+}
+
+/** 沒有 LINE 帳號或推播失敗就直接跳過，不擋存檔本身——呼叫端（routes/customModules.ts）
+ * 是在資料已經成功寫進資料庫之後才呼叫這支，推播是錦上添花，不是必要條件。
+ * tasks.added／tasks.modified：這次存檔新增／修改的打卡事項名稱，直接列在卡片上
+ * （見 buildNewTaskFlex）。 */
+export async function notifyNewTask(
+  userId: string,
+  title: string,
+  kind: string,
+  tasks: { added: string[]; modified: string[] },
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { lineUserId: true, botLang: true } })
+  if (!user?.lineUserId) return
+  const lang = normalizeBotLang(user.botLang)
+  try {
+    await pushMessages(user.lineUserId, [buildNewTaskFlex({ title, kind, added: tasks.added, modified: tasks.modified, lang })])
+  } catch (err) {
+    console.error('[line] 打卡事項推播失敗', user.lineUserId, err)
+  }
+}
+
+function taskRow(params: { label: string; done: boolean; data: string; lang: BotLang }): messagingApi.FlexBox {
   return {
     type: 'box',
-    layout: 'baseline',
+    layout: 'horizontal',
+    alignItems: 'center',
     paddingAll: 'sm',
     backgroundColor: '#F5EFE6',
     cornerRadius: 'md',
-    contents: [{ type: 'text', text: `${params.done ? '●' : '○'} ${params.label}`, size: 'sm' }],
-    action: { type: 'postback', data: params.data },
+    contents: [
+      {
+        type: 'text',
+        text: `${params.done ? '●' : '○'} ${params.label}`,
+        size: 'sm',
+        flex: 1,
+        gravity: 'center',
+        wrap: true,
+      },
+      {
+        type: 'button',
+        style: params.done ? 'link' : 'primary',
+        height: 'sm',
+        color: params.done ? '#A99A7E' : '#416743',
+        action: {
+          type: 'postback',
+          label: params.done ? t(params.lang, 'checklistChecked') : t(params.lang, 'checklistCheckin'),
+          data: params.data,
+        },
+      },
+    ],
   }
 }
 
 /**
- * 每日打卡 CheckList，供關鍵字觸發（見 routes/lineWebhook.ts）
- * 與排程主動推播（見 services/reminder.ts）共用。
- * TOEIC 與作品集區塊會即時反映該使用者當天的真實資料。
+ * 每日打卡 CheckList，供關鍵字觸發（見 routes/lineWebhook.ts）與排程主動推播
+ * （見 services/reminder.ts）共用。內容完全跟著「後台新增計畫／新增任務」走——
+ * 使用者在 App 建了哪些計畫、填了哪些任務，這裡就顯示哪些，不摻雜跟計畫無關的
+ * 固定內容。（這裡以前還有 TOEIC 背單字／閱讀測驗、作品集規劃、前端小知識、運動
+ * 四塊寫死或掛在別的資料模型上的區塊，跟「新增計畫」完全無關，已經拿掉。）
  */
 export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Promise<messagingApi.FlexBubble> {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const [toeic, projects] = await Promise.all([
-    prisma.toeicProgress.findUnique({ where: { userId_date: { userId, date: today } } }),
-    prisma.project.findMany({
-      where: { userId, status: 'doing' },
+  const [goalModules, tabModules, boardModules] = await Promise.all([
+    // 「新增計畫」選目標模板時填的每日任務——文字是使用者自己在後台輸入的，不是寫死的。
+    prisma.customModule.findMany({
+      where: { userId, kind: 'goal' },
       orderBy: { createdAt: 'asc' },
-      take: 2,
+      include: { dailyTasks: { orderBy: { order: 'asc' } } },
+    }),
+    // 「新增計畫」選 Tab 模板時填的分類清單，跟目標模板一樣是動態文字。
+    prisma.customModule.findMany({
+      where: { userId, kind: 'tab' },
+      orderBy: { createdAt: 'asc' },
+      include: { tabCats: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } } },
+    }),
+    // 「新增計畫」選看板模板時填的卡片——看板卡片沒有 done 欄位，用「還在待辦欄」
+    // 代表未完成，打卡＝移到已完成欄（見 lineWebhook.ts 的 checkinCustomBoardItem）。
+    prisma.customModule.findMany({
+      where: { userId, kind: 'board' },
+      orderBy: { createdAt: 'asc' },
+      include: { boardColumns: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } } },
     }),
   ])
 
-  const vocabDone = toeic?.vocabDone ?? false
-  const readingDone = toeic?.readingDone ?? false
-  const toeicPct = Math.round((((vocabDone ? 1 : 0) + (readingDone ? 1 : 0)) / 2) * 100)
-  const projectPct = projects.length
-    ? Math.round(projects.reduce((sum, p) => sum + p.dailyPct, 0) / projects.length)
-    : 0
+  // 三種模板都是新增計畫後就一定出現在卡片裡（不用等使用者先去 App 填內容），只是
+  // 還沒填任何項目時顯示提示文字，不是整塊消失——不然「後台新增計畫」跟「LINE 推播
+  // 看得到」中間會有一段空窗期，感覺沒連動。
+  const goalModulesAll = goalModules
+  const tabModulesAll = tabModules.map((m) => ({ ...m, allItems: m.tabCats.flatMap((c) => c.items) }))
+  const boardModulesAll = boardModules.map((m) => {
+    const totalItems = m.boardColumns.reduce((sum, c) => sum + c.items.length, 0)
+    const doneItems = m.boardColumns.find((c) => c.label === '已完成')?.items.length ?? 0
+    return {
+      ...m,
+      todoItems: m.boardColumns.find((c) => c.label === '待辦')?.items ?? [],
+      pct: totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0,
+    }
+  })
 
   return {
     type: 'bubble',
@@ -164,173 +294,115 @@ export async function getCheckListFlex(userId: string, lang: BotLang = 'zh'): Pr
           type: 'separator',
           margin: 'md',
         },
-        {
+        ...goalModulesAll.map((mod): messagingApi.FlexBox => {
+          const doneCount = mod.dailyTasks.filter((t) => t.done).length
+          const pct = mod.dailyTasks.length > 0 ? Math.round((doneCount / mod.dailyTasks.length) * 100) : 0
+          return {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            contents: [
+              { type: 'text', text: `🎯 ${mod.title}`, weight: 'bold', size: 'sm', color: '#416743' },
+              {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#E0E0E0',
+                height: '6px',
+                cornerRadius: 'md',
+                contents: [{ type: 'box', layout: 'vertical', backgroundColor: '#416743', width: `${pct}%`, contents: [] }],
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'sm',
+                spacing: 'xs',
+                contents:
+                  mod.dailyTasks.length > 0
+                    ? mod.dailyTasks.map((t) =>
+                        taskRow({
+                          label: t.title,
+                          done: t.done,
+                          data: new URLSearchParams({ type: 'custom_task', id: t.id }).toString(),
+                          lang,
+                        }),
+                      )
+                    : [{ type: 'text', text: t(lang, 'checklistNoDailyTasks'), size: 'sm', color: '#A99A7E' }],
+              },
+            ],
+          }
+        }),
+        ...tabModulesAll.map((mod): messagingApi.FlexBox => {
+          const doneCount = mod.allItems.filter((i) => i.done).length
+          const pct = mod.allItems.length > 0 ? Math.round((doneCount / mod.allItems.length) * 100) : 0
+          return {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            contents: [
+              { type: 'text', text: `📋 ${mod.title}`, weight: 'bold', size: 'sm', color: '#416743' },
+              {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#E0E0E0',
+                height: '6px',
+                cornerRadius: 'md',
+                contents: [{ type: 'box', layout: 'vertical', backgroundColor: '#416743', width: `${pct}%`, contents: [] }],
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'sm',
+                spacing: 'xs',
+                contents:
+                  mod.allItems.length > 0
+                    ? mod.allItems.map((i) =>
+                        taskRow({
+                          label: i.name,
+                          done: i.done,
+                          data: new URLSearchParams({ type: 'custom_tab_item', id: i.id }).toString(),
+                          lang,
+                        }),
+                      )
+                    : [{ type: 'text', text: t(lang, 'checklistNoTabItems'), size: 'sm', color: '#A99A7E' }],
+              },
+            ],
+          }
+        }),
+        ...boardModulesAll.map((mod): messagingApi.FlexBox => ({
           type: 'box',
           layout: 'vertical',
           spacing: 'xs',
           contents: [
-            {
-              type: 'text',
-              text: `📚 ${t(lang, 'checklistToeic')}`,
-              weight: 'bold',
-              size: 'sm',
-              color: '#416743',
-            },
+            { type: 'text', text: `🗂️ ${mod.title}`, weight: 'bold', size: 'sm', color: '#416743' },
             {
               type: 'box',
               layout: 'vertical',
               backgroundColor: '#E0E0E0',
               height: '6px',
               cornerRadius: 'md',
-              contents: [
-                { type: 'box', layout: 'vertical', backgroundColor: '#416743', width: `${toeicPct}%`, contents: [] },
-              ],
+              contents: [{ type: 'box', layout: 'vertical', backgroundColor: '#416743', width: `${mod.pct}%`, contents: [] }],
             },
             {
               type: 'box',
               layout: 'vertical',
               margin: 'sm',
               spacing: 'xs',
-              contents: [
-                taskRow({
-                  label: 'TOEIC 背單字',
-                  done: vocabDone,
-                  data: new URLSearchParams({ type: 'toeic', field: 'vocab' }).toString(),
-                }),
-                taskRow({
-                  label: 'TOEIC 閱讀測驗',
-                  done: readingDone,
-                  data: new URLSearchParams({ type: 'toeic', field: 'reading' }).toString(),
-                }),
-              ],
-            },
-          ],
-        },
-        {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'xs',
-          contents: [
-            {
-              type: 'text',
-              text: `🎨 ${t(lang, 'checklistPortfolio')}`,
-              weight: 'bold',
-              size: 'sm',
-              color: '#416743',
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              backgroundColor: '#E0E0E0',
-              height: '6px',
-              cornerRadius: 'md',
-              contents: [
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  backgroundColor: '#416743',
-                  width: `${projectPct}%`,
-                  contents: [],
-                },
-              ],
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'sm',
-              spacing: 'xs',
+              // 這裡列出的都是還在「待辦」欄的卡片，所以一律是未完成——打卡後會被移到
+              // 「已完成」欄，不會留在這份清單裡（見 checkinCustomBoardItem）。
               contents:
-                projects.length > 0
-                  ? projects.map((p) =>
+                mod.todoItems.length > 0
+                  ? mod.todoItems.map((i) =>
                       taskRow({
-                        label: p.name,
-                        done: p.dailyPct >= 100,
-                        data: new URLSearchParams({ type: 'project', id: p.id }).toString(),
+                        label: i.name,
+                        done: false,
+                        data: new URLSearchParams({ type: 'custom_board_item', id: i.id }).toString(),
+                        lang,
                       }),
                     )
-                  : [{ type: 'text', text: t(lang, 'checklistNoProjects'), size: 'sm', color: '#A99A7E' }],
+                  : [{ type: 'text', text: t(lang, 'checklistNoBoardTodo'), size: 'sm', color: '#A99A7E' }],
             },
           ],
-        },
-        {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'xs',
-          contents: [
-            {
-              type: 'text',
-              text: `💻 ${t(lang, 'checklistFrontend')}`,
-              weight: 'bold',
-              size: 'sm',
-              color: '#416743',
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              backgroundColor: '#E0E0E0',
-              height: '6px',
-              cornerRadius: 'md',
-              contents: [
-                { type: 'box', layout: 'vertical', backgroundColor: '#416743', width: '60%', contents: [] },
-              ],
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'sm',
-              spacing: 'xs',
-              contents: [
-                taskRow({
-                  label: 'React x3 (含 TS)',
-                  done: false,
-                  data: new URLSearchParams({ type: 'task', title: 'React x3 (含 TS)' }).toString(),
-                }),
-                taskRow({
-                  label: 'Python / 面試題',
-                  done: false,
-                  data: new URLSearchParams({ type: 'task', title: 'Python / 面試題' }).toString(),
-                }),
-              ],
-            },
-          ],
-        },
-        {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'xs',
-          contents: [
-            {
-              type: 'text',
-              text: `🏃 ${t(lang, 'checklistSport')}`,
-              weight: 'bold',
-              size: 'sm',
-              color: '#416743',
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              backgroundColor: '#E0E0E0',
-              height: '6px',
-              cornerRadius: 'md',
-              contents: [
-                { type: 'box', layout: 'vertical', backgroundColor: '#416743', width: '100%', contents: [] },
-              ],
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'sm',
-              spacing: 'xs',
-              contents: [
-                taskRow({
-                  label: '超慢跑',
-                  done: false,
-                  data: new URLSearchParams({ type: 'sport' }).toString(),
-                }),
-              ],
-            },
-          ],
-        },
+        })),
       ],
     },
     footer: {

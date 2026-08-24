@@ -32,4 +32,7 @@ export const queryKeys = {
   streak: {
     all: ['streak'] as const,
   },
+  customModules: {
+    all: ['customModules'] as const,
+  },
 }
