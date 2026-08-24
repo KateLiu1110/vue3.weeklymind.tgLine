@@ -255,16 +255,26 @@ export const useCoreStore = defineStore('core', {
       this.customModules = []
       this.activeCustomId = null
     },
+    // 這三支的參數都來自 TanStack Query 的 query.data（見 DashboardLayout 呼叫端）。
+    // @tanstack/vue-query 預設把整個 query state（含 data）包一層 Vue 的 readonly()，
+    // 如果直接把這個參照塞進 Pinia state，後面任何對巢狀陣列的 .push()／.splice() 都會
+    // 因為底層還是同一個唯讀 Proxy 而失敗（實測會噴「target is readonly」的警告，看板
+    // 模板「新增任務」踩到過）。這裡要深拷貝一份乾淨、完全可寫的資料，徹底切斷跟 query
+    // cache 的參照關係——但 structuredClone 對 Vue 的 readonly Proxy 會直接丟
+    // 「could not be cloned」（瀏覽器原生的結構化複製認不得 Proxy 包過的 Array/Object），
+    // 改用 JSON round-trip：JSON.stringify 是透過一般的屬性存取讀資料，會正確穿過
+    // Proxy 的 getter，不會踩到同樣的問題。這裡的資料本來就是 API 回應轉出來的純
+    // JSON，不含 Date/函式，用 JSON round-trip 沒有資訊遺失的疑慮。
     hydratePlans(plans: Plan[]) {
-      this.plans = plans
+      this.plans = JSON.parse(JSON.stringify(plans))
     },
     hydrateMilestones(milestones: Milestone[]) {
-      this.milestones = milestones
+      this.milestones = JSON.parse(JSON.stringify(milestones))
     },
     // 只在頁面掛載時整批覆蓋一次（見 DashboardLayout）；畫面編輯期間的自動存檔走另一條
     // debounce 的 PUT，不會再呼叫這支蓋掉正在編輯的內容。
     hydrateCustomModules(modules: CustomModule[]) {
-      this.customModules = modules
+      this.customModules = JSON.parse(JSON.stringify(modules))
     },
     setBotPlatform(platform: BotPlatform) {
       this.botPlatform = platform

@@ -30,12 +30,13 @@ plansRouter.get('/', async (req, res) => {
   res.json({ ok: true, data: plans })
 })
 
+// 建立計畫本身不觸發解鎖判斷、不推播——單純的新增/設定動作，不該附帶「順便幫你做了
+// 別的事」的感覺。解鎖判斷留在真的會改變打卡數的動作上（見下面 /:id/checkin）；
+// LINE 推播則留到「計畫裡真的新增了任務」的時候才發（見 routes/customModules.ts）。
 plansRouter.post('/', async (req, res, next) => {
   try {
     const body = planInput.parse(req.body)
     const plan = await prisma.plan.create({ data: { ...body, userId: req.userId } })
-    const newlyUnlocked = await checkAndUnlockAchievements(req.userId)
-    await notifyUnlocks(req.userId, newlyUnlocked)
     res.status(201).json({ ok: true, data: plan })
   } catch (err) {
     next(err)

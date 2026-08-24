@@ -1,0 +1,74 @@
+{
+  "type": "flex",
+  "altText": "🎉 新任務已加入",
+  "contents": {
+    "type": "bubble",
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "paddingAll": "20px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "text",
+          "text": "🎉 新任務已加入",
+          "weight": "bold",
+          "size": "lg"
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#EEF3EA",
+          "cornerRadius": "10px",
+          "paddingAll": "14px",
+          "margin": "md",
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "text",
+              "text": "多益衝刺 600 分",
+              "weight": "bold",
+              "size": "md",
+              "color": "#416743",
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "目標模板",
+              "size": "xs",
+              "color": "#7C9473"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "xs",
+          "margin": "md",
+          "contents": [
+            {
+              "type": "text",
+              "text": "☐ 做一回閱讀測驗",
+              "size": "sm",
+              "color": "#3A2E1E",
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "輸入「任務」查看今日打卡卡片，現在就可以打卡了",
+          "size": "xs",
+          "color": "#A99A7E",
+          "wrap": true,
+          "margin": "md"
+        }
+      ]
+    },
+    "styles": {
+      "body": {
+        "backgroundColor": "#FFFAF5"
+      }
+    }
+  }
+}

@@ -2,7 +2,10 @@ import { prisma } from '../db.js'
 import { pushMessages, textMessage } from '../services/line.js'
 
 // 解鎖條件（沒有指定明確門檻時的合理預設，之後要調整只要改這個檔案）：
-//   連結收藏：新增第一個計畫（代表已經開始用 WeeklyMind 管理目標）
+//   連結收藏、LineBot 設定：目前沒有自動解鎖條件，只能手動解鎖。連結收藏原本是
+//   「新增第一個計畫」就解鎖，但這代表「新增計畫」這個單純的建立/設定動作會附帶
+//   觸發解鎖＋LINE 通知，使用者體感上像是「新增計畫」莫名其妙多做了別的事，改成
+//   不自動解鎖；LineBot 設定沿用同一個「先鎖住、之後再決定解鎖條件」的做法。
 //   覆盤中心：累積打卡次數達到 5 次（要有足夠的打卡紀錄才有東西可以回顧）
 //   主題色彩：累積打卡次數達到 15 次（沒有真的金流／訂閱機制，這裡沿用跟其他工具
 //   一樣「用得夠久就解鎖」的邏輯，取代原本設想的「付費 Pro」門檻）
@@ -10,12 +13,14 @@ export const ACHIEVEMENT_KEYS = {
   links: 'links_unlocked',
   retro: 'retro_unlocked',
   theme: 'theme_unlocked',
+  linebot: 'linebot_unlocked',
 } as const
 
 export const ACHIEVEMENT_LABELS: Record<string, string> = {
   [ACHIEVEMENT_KEYS.links]: '連結收藏',
   [ACHIEVEMENT_KEYS.retro]: '覆盤中心',
   [ACHIEVEMENT_KEYS.theme]: '主題色彩',
+  [ACHIEVEMENT_KEYS.linebot]: 'LineBot 設定',
 }
 
 const RETRO_CHECKIN_THRESHOLD = 5
@@ -50,25 +55,13 @@ async function getTotalCheckins(userId: string): Promise<number> {
  * 回傳這次「新」解鎖的 key 清單（沒有新解鎖就是空陣列），呼叫端可以用這個決定要不要
  * 通知使用者，見 notifyUnlocks()。 */
 export async function checkAndUnlockAchievements(userId: string): Promise<string[]> {
-  const [linksUnlocked, retroUnlocked, themeUnlocked] = await Promise.all([
-    isUnlocked(userId, ACHIEVEMENT_KEYS.links),
+  const [retroUnlocked, themeUnlocked] = await Promise.all([
     isUnlocked(userId, ACHIEVEMENT_KEYS.retro),
     isUnlocked(userId, ACHIEVEMENT_KEYS.theme),
   ])
 
   const newlyUnlocked: string[] = []
   const tasks: Promise<unknown>[] = []
-
-  if (!linksUnlocked) {
-    tasks.push(
-      prisma.plan.count({ where: { userId } }).then(async (count) => {
-        if (count >= 1) {
-          await unlock(userId, ACHIEVEMENT_KEYS.links)
-          newlyUnlocked.push(ACHIEVEMENT_KEYS.links)
-        }
-      }),
-    )
-  }
 
   if (!retroUnlocked || !themeUnlocked) {
     tasks.push(

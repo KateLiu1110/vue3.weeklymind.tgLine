@@ -160,14 +160,14 @@ const toolNavItems = [
   { name: 'retro', label: '覆盤中心', icon: 'chart', achievementKey: ACHIEVEMENT_KEYS.retro },
 ]
 const achievementsQuery = useAchievements()
-function isToolLocked(key: string): boolean {
-  return auth.isLoggedIn && !(achievementsQuery.data.value ?? []).includes(key)
+function isToolLocked(key: string | null): boolean {
+  return !!key && auth.isLoggedIn && !(achievementsQuery.data.value ?? []).includes(key)
 }
 const streakQuery = useStreak()
 const streakDays = computed(() => streakQuery.data.value ?? 0)
 const systemNavItems = [
-  { name: 'settings', label: '設定', icon: 'gear' },
-  { name: 'linebot', label: 'LineBot 設定', icon: 'navChat' },
+  { name: 'settings', label: '設定', icon: 'gear', achievementKey: null as string | null },
+  { name: 'linebot', label: 'LineBot 設定', icon: 'navChat', achievementKey: ACHIEVEMENT_KEYS.linebot as string | null },
 ]
 
 const PAGE_TITLES: Record<string, string> = {
@@ -302,8 +302,10 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
         :class="sidebarCollapsed ? 'justify-center' : ''"
         active-class="bg-brand-primary text-white"
       >
-        <Icon :name="item.icon" :size="16" />
-        <span v-if="!sidebarCollapsed" class="whitespace-nowrap">{{ item.label }}</span>
+        <Icon :name="isToolLocked(item.achievementKey) ? 'lock' : item.icon" :size="16" />
+        <span v-if="!sidebarCollapsed" class="flex-1 whitespace-nowrap" :class="isToolLocked(item.achievementKey) ? 'text-sand-400' : ''">
+          {{ item.label }}
+        </span>
       </RouterLink>
 
       <div
@@ -440,10 +442,11 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closePlanModal()">取消</button>
         <button
           type="button"
-          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
           :disabled="core.planSaving"
           @click="core.savePlan()"
         >
+          <Icon v-if="core.planSaving" name="refresh" :size="14" class="animate-spin" />
           {{ core.planSaving ? '新增中…' : '新增' }}
         </button>
       </div>

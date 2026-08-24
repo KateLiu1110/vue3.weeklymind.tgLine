@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../db.js'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
 import { requireAuth } from '../middleware/auth.js'
+import { notifyNewTask } from '../services/line.js'
 
 export const customModulesRouter = Router()
 customModulesRouter.use(requireAuth)
@@ -139,11 +140,47 @@ const modulePutSchema = z.object({
 // 前端把整個模組（含巢狀子項目）當一份文件編輯，所以這裡整包 PUT 覆寫：更新純量欄位，
 // 每個子集合先清空再依前端目前的陣列順序重建。畫面上任何一個小動作（打勾、刪一筆、
 // 拖曳看板卡片）都是呼叫這支，不做逐項的細粒度 API。
+// 「新增任務、或修改現有任務內容都要推播」：比較這次存檔前後、跟這個模組 kind 相關
+// 的項目名稱清單（目標看 dailyTasks 的 title、Tab／看板看所有子集合裡 items 的
+// name）。這裡沒有跨次存檔穩定的 id 可以比對（每次 PUT 都整批刪掉重建，見下面的
+// transaction），只能退而求其次用「陣列位置」比對：位置超出舊清單長度的是新增，
+// 同一個位置但名字不同的是修改——前端編輯是直接改原本那筆的 title/name、新增是
+// push 到陣列尾端，兩種操作都不會影響其他項目的相對順序，位置比對在這個前提下夠準；
+// 唯一會誤判的情境是「純粹拖曳重新排序、內容完全沒改」，這種邊界情況目前先不處理。
+// 單純打勾／刪除都不算，因為兩者比的都是 title/name 文字，不受 done 狀態影響。
+function getRelevantNames(kind: string, source: { dailyTasks?: { title: string }[]; tabCats?: { items?: { name: string }[] }[]; boardColumns?: { items?: { name: string }[] }[] }): string[] {
+  if (kind === 'goal') return (source.dailyTasks ?? []).map((t) => t.title)
+  if (kind === 'tab') return (source.tabCats ?? []).flatMap((c) => (c.items ?? []).map((i) => i.name))
+  if (kind === 'board') return (source.boardColumns ?? []).flatMap((c) => (c.items ?? []).map((i) => i.name))
+  return []
+}
+
+function diffTaskNames(oldNames: string[], newNames: string[]): { added: string[]; modified: string[] } {
+  const added = newNames.length > oldNames.length ? newNames.slice(oldNames.length) : []
+  const modified: string[] = []
+  const commonLen = Math.min(oldNames.length, newNames.length)
+  for (let i = 0; i < commonLen; i++) {
+    if (oldNames[i] !== newNames[i]) modified.push(newNames[i])
+  }
+  return { added, modified }
+}
+
 customModulesRouter.put('/:id', async (req, res, next) => {
   try {
     const body = modulePutSchema.parse(req.body)
-    const existing = await prisma.customModule.findUnique({ where: { id: req.params.id } })
+    const existing = await prisma.customModule.findUnique({
+      where: { id: req.params.id },
+      include: {
+        dailyTasks: { select: { title: true } },
+        tabCats: { include: { items: { select: { name: true } } } },
+        boardColumns: { include: { items: { select: { name: true } } } },
+      },
+    })
     if (!existing || existing.userId !== req.userId) throw ApiBusinessError.notFound('CustomModule')
+
+    const oldNames = getRelevantNames(existing.kind, existing)
+    const newNames = getRelevantNames(existing.kind, body)
+    const { added: addedNames, modified: modifiedNames } = diffTaskNames(oldNames, newNames)
 
     const { dailyTasks, scores, examDates, boardColumns, tabCats, ...scalars } = body
     const moduleId = req.params.id
@@ -198,6 +235,10 @@ customModulesRouter.put('/:id', async (req, res, next) => {
 
     const updated = await prisma.customModule.findUniqueOrThrow({ where: { id: moduleId }, include: moduleInclude })
     res.json({ ok: true, data: toModulePayload(updated) })
+
+    if (addedNames.length > 0 || modifiedNames.length > 0) {
+      void notifyNewTask(req.userId, existing.title, existing.kind, { added: addedNames, modified: modifiedNames })
+    }
   } catch (err) {
     next(err)
   }

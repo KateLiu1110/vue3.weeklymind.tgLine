@@ -57,19 +57,11 @@ export const useExecStore = defineStore('exec', {
     selectedDayIndex: null as number | null,
     taskDoneMap: {} as Record<string, boolean>,
 
-    radarSkills: [
-      { label: '運動', value: 78 },
-      { label: '英文', value: 62 },
-      { label: '作品集', value: 45 },
-      { label: '生活', value: 55 },
-    ] as RadarSkill[],
-    checkedGoalsCount: 5,
-    catProgress: [
-      { id: 'c1', name: '運動', value: 70, color: '#33513f', auto: true },
-      { id: 'c2', name: '多益英文', value: 62, color: '#c9a876', auto: true },
-      { id: 'c3', name: '作品集', value: 45, color: '#2f6bd8', auto: true },
-      { id: 'c4', name: '生活雜項', value: 55, color: '#b08968', auto: false },
-    ] as CategoryProgress[],
+    // 這份清單目前完全是前端本地狀態，沒有對應的後端資料表——新增計畫、刪計畫、打卡
+    // 都不會讓它變動，「+新增分類」加的項目也只存在瀏覽器記憶體，重新整理就消失。
+    // 之前這裡放了 4 筆示範資料（運動/多益英文/作品集/生活雜項），沒有計畫的新帳號
+    // 也會看到這些假數字，改成空陣列避免看起來像有真實紀錄。
+    catProgress: [] as CategoryProgress[],
 
     execCatModalOpen: false,
     execCatForm: { name: '', value: '0' },
@@ -94,6 +86,30 @@ export const useExecStore = defineStore('exec', {
     execPlans(): Plan[] {
       const core = useCoreStore()
       return core.plans.filter((p) => (p.weekdays && p.weekdays.length > 0) || p.module === 'exec')
+    },
+    /** 每個計畫一根軸，用計畫標題當標籤、目前完成度當數值——之前是寫死的「運動/英文/
+     * 作品集/生活」4 軸示範資料，跟使用者實際有幾個計畫無關，改成完全跟著 core.plans
+     * 走：沒有計畫就是空雷達圖，有幾個計畫就幾軸。 */
+    radarSkills(): RadarSkill[] {
+      const core = useCoreStore()
+      return core.plans.map((p) => ({ label: p.title, value: p.pct }))
+    },
+    /** 「已完成打卡項目」：算計畫底下自訂模組（目標每日任務／Tab項目／看板已完成欄）
+     * 已經打勾/移完成的卡片總數，橫跨所有計畫。之前是寫死的 5，新帳號、還沒新增任何
+     * 任務卡的計畫也會顯示 5，改成真的算。 */
+    checkedGoalsCount(): number {
+      const core = useCoreStore()
+      let count = 0
+      for (const mod of core.customModules) {
+        if (mod.kind === 'goal') {
+          count += mod.dailyTasks.filter((t) => t.done).length
+        } else if (mod.kind === 'tab') {
+          count += mod.tabCats.flatMap((c) => c.items).filter((i) => i.done).length
+        } else if (mod.kind === 'board') {
+          count += mod.boardColumns.find((c) => c.label === '已完成')?.items.length ?? 0
+        }
+      }
+      return count
     },
     weekDays(): {
       index: number
