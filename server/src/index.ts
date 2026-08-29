@@ -23,6 +23,13 @@ import { startDailyCheckinReminder, startWeeklyReportReminder } from './services
 const app = express()
 const port = Number(process.env.PORT || 8080)
 
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+  })
+})
+
+
 app.use(cors())
 
 // LINE 的 line.middleware() 自己會處理原始 request body 來驗證簽章，
