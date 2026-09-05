@@ -59,7 +59,7 @@ watch(
   { immediate: true },
 )
 
-// 計畫管理 module now reads/writes through the real API (see api-architecture.md);
+// 計畫管理 module now reads/writes through the real API (see docs/api-architecture.md);
 // this is the single place that hydrates the Pinia core store from the server
 // fetch so every consumer (Overview, ExecView, sidebar) keeps working unchanged.
 // 訪客（未登入）沒有 token，usePlans/useMilestones 內建的 enabled 判斷不會發出請求，
@@ -167,7 +167,7 @@ const streakQuery = useStreak()
 const streakDays = computed(() => streakQuery.data.value ?? 0)
 const systemNavItems = [
   { name: 'settings', label: '設定', icon: 'gear', achievementKey: null as string | null },
-  { name: 'linebot', label: 'LineBot 設定', icon: 'navChat', achievementKey: ACHIEVEMENT_KEYS.linebot as string | null },
+  { name: 'linebot', label: 'LineBot 設定', icon: 'navChat', achievementKey: null as string | null },
 ]
 
 const PAGE_TITLES: Record<string, string> = {

@@ -13,7 +13,7 @@ const core = useCoreStore()
 const ov = useOverviewStore()
 const settings = useSettingsStore()
 
-// 臨時待辦事項：隨手記的一次性任務，跟計畫/里程碑一樣是真的打 API（見 api-architecture.md §2.4）。
+// 臨時待辦事項：隨手記的一次性任務，跟計畫/里程碑一樣是真的打 API（見 docs/api-architecture.md §2.4）。
 const dailyTasksQuery = useDailyTasks()
 const dailyTaskMutations = useDailyTaskMutations()
 const dailyTaskDraft = ref('')

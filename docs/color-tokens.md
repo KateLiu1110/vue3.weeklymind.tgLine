@@ -79,7 +79,6 @@
 | #b38b00 | `amber-dark` | 0 | 尚未使用 |
 | #ffddaf | `peach-soft` | 0 | 尚未使用 |
 | #fff7e6 | `amber-bg-soft` | 0 | 尚未使用 |
-| #26a5e4 | `telegram-brand` | 4 | LoginView, RegisterView, LineBotSettingsView, SettingsView |
 | #2f6bd8 | `link-blue` | 1 | LineNotifyView |
 | #eaf1ff | `blue-bg-soft` | 2 | LineBotSettingsView, SettingsView |
 | #dce7f5 | `blue-bg-soft-2` | 0 | 尚未使用 |

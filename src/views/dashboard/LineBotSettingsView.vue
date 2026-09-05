@@ -4,18 +4,11 @@ import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore } from '@/stores/core'
 import { useAuthStore } from '@/stores/auth'
 import { updatePreferences } from '@/api/client/preferences'
-import { useAchievements } from '@/composables/useAchievements'
-import { ACHIEVEMENT_KEYS } from '@/api/client/achievements'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
-import LockedFeature from '@/components/common/LockedFeature.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const core = useCoreStore()
 const auth = useAuthStore()
-const achievementsQuery = useAchievements()
-const isLocked = computed(
-  () => !auth.isLoggedIn || !(achievementsQuery.data.value ?? []).includes(ACHIEVEMENT_KEYS.linebot),
-)
 
 async function setBotLang(lang: string) {
   if (!auth.requireLogin()) return
@@ -50,9 +43,6 @@ const weeklyDays = ['一', '二', '三', '四', '五', '六', '日']
 const platformStatusText = computed(() =>
   core.botPlatform === 'line' ? '已綁定' : '未綁定',
 )
-const telegramStatusText = computed(() =>
-  core.botPlatform === 'telegram' ? '已綁定' : '未綁定',
-)
 
 const weeklyReviewBars = [
   { label: '一', h: 32, active: false },
@@ -84,9 +74,7 @@ const weeklyReviewOptions: ChartOptions<'bar'> = {
 </script>
 
 <template>
-  <div>
-    <LockedFeature v-if="isLocked" title="LineBot 設定尚未解鎖" hint="這個工具還在整理，之後開放時會通知你" />
-  <div v-else class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-5 items-start">
+  <div class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-5 items-start">
     <div class="flex flex-col gap-4">
       <!-- 提醒事項 -->
       <div class="bg-cream-50 border border-cream-150 rounded-card p-5">
@@ -130,30 +118,13 @@ const weeklyReviewOptions: ChartOptions<'bar'> = {
       <div class="bg-cream-50 border border-cream-150 rounded-card p-5">
         <div class="text-sm font-medium text-ink-800 mb-3.5">綁定通訊軟體</div>
         <div class="flex gap-2.5 mb-3.5">
-          <button
-            type="button"
-            class="flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-control cursor-pointer border"
-            :class="core.botPlatform === 'line' ? 'bg-success-bg-soft border-brand-primary' : 'bg-transparent border-cream-150'"
-            @click="core.setBotPlatform('line')"
-          >
+          <div class="flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-control border bg-success-bg-soft border-brand-primary">
             <span class="w-8 h-8 rounded-lg bg-line-brand flex items-center justify-center shrink-0 text-white text-sm">L</span>
             <span class="text-left">
               <div class="text-xs font-medium text-ink-900">LINE</div>
-              <div class="text-[10.5px]" :class="core.botPlatform === 'line' ? 'text-brand-primary' : 'text-sand-500'">{{ platformStatusText }}</div>
+              <div class="text-[10.5px] text-brand-primary">{{ platformStatusText }}</div>
             </span>
-          </button>
-          <button
-            type="button"
-            class="flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-control cursor-pointer border"
-            :class="core.botPlatform === 'telegram' ? 'bg-blue-bg-soft border-telegram-brand' : 'bg-transparent border-cream-150'"
-            @click="core.setBotPlatform('telegram')"
-          >
-            <span class="w-8 h-8 rounded-lg bg-telegram-brand flex items-center justify-center shrink-0 text-white text-sm">T</span>
-            <span class="text-left">
-              <div class="text-xs font-medium text-ink-900">Telegram</div>
-              <div class="text-[10.5px]" :class="core.botPlatform === 'telegram' ? 'text-telegram-brand' : 'text-sand-500'">{{ telegramStatusText }}</div>
-            </span>
-          </button>
+          </div>
         </div>
         <div class="flex items-center justify-between bg-cream-100 rounded-control px-3.5 py-2.5">
           <span class="text-xs text-ink-700">Bot 回覆語言</span>
@@ -218,9 +189,9 @@ const weeklyReviewOptions: ChartOptions<'bar'> = {
         </div>
         <div class="mt-4 bg-cream-100 rounded-control px-3.5 py-3 flex items-center justify-between">
           <span class="text-xs text-ink-700">推播頻道</span>
-          <span class="flex items-center gap-1.5 text-xs font-medium" :class="core.botPlatform === 'line' ? 'text-line-brand' : 'text-telegram-brand'">
-            <span class="w-1.5 h-1.5 rounded-full inline-block" :class="core.botPlatform === 'line' ? 'bg-line-brand' : 'bg-telegram-brand'" />
-            {{ core.botPlatform === 'line' ? 'LINE 推播中' : 'Telegram 推播中' }}
+          <span class="flex items-center gap-1.5 text-xs font-medium text-line-brand">
+            <span class="w-1.5 h-1.5 rounded-full inline-block bg-line-brand" />
+            LINE 推播中
           </span>
         </div>
       </div>
@@ -267,6 +238,5 @@ const weeklyReviewOptions: ChartOptions<'bar'> = {
         </div>
       </div>
     </div>
-  </div>
   </div>
 </template>

@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useCoreStore } from '@/stores/core'
 import { AVATAR_OPTIONS, useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
-import { useAchievements } from '@/composables/useAchievements'
-import { ACHIEVEMENT_KEYS } from '@/api/client/achievements'
 import { updatePreferences } from '@/api/client/preferences'
 import Icon from '@/components/common/Icon.vue'
 
-const core = useCoreStore()
 const settings = useSettingsStore()
 const auth = useAuthStore()
 
@@ -20,14 +15,8 @@ const THEME_SERIES = [
   { id: 'sakura', labelZh: '櫻花系列', labelEn: 'Sakura Series', swatches: ['#8B2252', '#C4547A', '#E88FAA', '#F5C8D8', '#FFF0F5'] },
 ]
 
-const achievementsQuery = useAchievements()
-const isThemeLocked = computed(
-  () => auth.isLoggedIn && !(achievementsQuery.data.value ?? []).includes(ACHIEVEMENT_KEYS.theme),
-)
-
 async function selectTheme(themeId: string) {
   if (!auth.requireLogin()) return
-  if (isThemeLocked.value) return
   const updated = await updatePreferences({ theme: themeId })
   if (auth.user) auth.user.theme = updated.theme
 }
@@ -38,36 +27,14 @@ async function selectTheme(themeId: string) {
     <div class="rounded-card p-5 bg-cream-50 border border-cream-150">
       <div class="text-sm font-medium text-ink-800 mb-3">通訊軟體綁定</div>
       <div class="flex gap-2.5">
-        <button
-          type="button"
-          class="flex-1 flex items-center gap-3 p-3.5 rounded-card cursor-pointer border"
-          :class="core.botPlatform === 'line' ? 'bg-success-bg-soft border-brand-primary' : 'bg-transparent border-cream-150'"
-          @click="core.setBotPlatform('line')"
-        >
+        <div class="flex-1 flex items-center gap-3 p-3.5 rounded-card border bg-success-bg-soft border-brand-primary">
           <span class="w-10 h-10 rounded-xl bg-line-brand flex items-center justify-center shrink-0 text-white text-base">L</span>
           <span class="flex-1 text-left">
             <div class="text-sm font-medium text-ink-900">LINE</div>
-            <div class="text-xs mt-0.5" :class="core.botPlatform === 'line' ? 'text-brand-primary' : 'text-sand-500'">
-              {{ core.botPlatform === 'line' ? '已綁定・目前使用中' : '未綁定' }}
-            </div>
+            <div class="text-xs mt-0.5 text-brand-primary">已綁定・目前使用中</div>
           </span>
-        </button>
-        <button
-          type="button"
-          class="flex-1 flex items-center gap-3 p-3.5 rounded-card cursor-pointer border"
-          :class="core.botPlatform === 'telegram' ? 'bg-blue-bg-soft border-telegram-brand' : 'bg-transparent border-cream-150'"
-          @click="core.setBotPlatform('telegram')"
-        >
-          <span class="w-10 h-10 rounded-xl bg-telegram-brand flex items-center justify-center shrink-0 text-white text-base">T</span>
-          <span class="flex-1 text-left">
-            <div class="text-sm font-medium text-ink-900">Telegram</div>
-            <div class="text-xs mt-0.5" :class="core.botPlatform === 'telegram' ? 'text-telegram-brand' : 'text-sand-500'">
-              {{ core.botPlatform === 'telegram' ? '已綁定・目前使用中' : '未綁定' }}
-            </div>
-          </span>
-        </button>
+        </div>
       </div>
-      <p class="mt-3 mb-0 text-xs text-sand-400">切換後，登入 / 註冊頁的帳號綁定方式會跟著改變</p>
     </div>
 
     <div class="rounded-card p-5 bg-cream-50 border border-cream-150">
@@ -95,13 +62,10 @@ async function selectTheme(themeId: string) {
 
     <div class="rounded-card p-5 bg-cream-50 border border-cream-150">
       <div class="text-sm font-medium text-ink-800 mb-1 flex items-center gap-1.5">
-        <Icon v-if="isThemeLocked" name="lock" :size="14" class="text-sand-400" />
         主題色彩
       </div>
-      <p class="m-0 mb-3.5 text-xs text-sand-600">
-        {{ isThemeLocked ? '累積打卡達 15 次即可解鎖，選擇喜歡的主題色系' : '選一套喜歡的主題色系，切換後立即套用到整個網站' }}
-      </p>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" :class="isThemeLocked ? 'opacity-50 pointer-events-none' : ''">
+      <p class="m-0 mb-3.5 text-xs text-sand-600">選一套喜歡的主題色系，切換後立即套用到整個網站</p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <button
           v-for="series in THEME_SERIES"
           :key="series.id"

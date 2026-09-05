@@ -34,21 +34,7 @@ const lineLoginError = computed(() => {
   return ''
 })
 
-const platformTab = computed(() => {
-  const p = core.botPlatform
-  return {
-    label: p === 'line' ? 'LINE' : 'Telegram',
-    btnClass: p === 'line' ? 'bg-line-brand' : 'bg-telegram-brand',
-  }
-})
-
-function selectPlatform(platform: 'line' | 'telegram') {
-  core.setBotPlatform(platform)
-}
-
 function loginWithLine() {
-  // Telegram 登入還沒實作，這顆按鈕目前只支援 LINE。
-  if (core.botPlatform !== 'line') return
   window.location.href = `${apiBaseUrl}/auth/line/login`
 }
 </script>
@@ -67,35 +53,13 @@ function loginWithLine() {
         </div>
       </div>
 
-      <div class="flex gap-2 mb-3.5">
-        <button
-          type="button"
-          class="flex-1 text-center py-2 rounded-full cursor-pointer font-medium text-xs"
-          :class="core.botPlatform === 'line' ? 'bg-brand-primary text-white' : 'bg-transparent text-ink-700'"
-          @click="selectPlatform('line')"
-        >
-          LINE
-        </button>
-        <button
-          type="button"
-          class="flex-1 text-center py-2 rounded-full cursor-pointer font-medium text-xs"
-          :class="
-            core.botPlatform === 'telegram' ? 'bg-brand-primary text-white' : 'bg-transparent text-ink-700'
-          "
-          @click="selectPlatform('telegram')"
-        >
-          Telegram
-        </button>
-      </div>
-
       <button
         type="button"
-        class="flex items-center justify-center gap-2.5 w-full text-white font-medium py-3.5 rounded-control cursor-pointer"
-        :class="platformTab.btnClass"
+        class="flex items-center justify-center gap-2.5 w-full text-white font-medium py-3.5 rounded-control cursor-pointer bg-line-brand"
         @click="loginWithLine"
       >
         <span class="w-5 h-4 bg-white rounded" style="border-radius: 6px 6px 6px 2px" />
-        使用 {{ platformTab.label }} 帳號登入
+        使用 LINE 帳號登入
       </button>
       <p v-if="lineLoginError" class="mt-2.5 text-danger text-xs text-center">⚠ {{ lineLoginError }}</p>
 
@@ -119,8 +83,8 @@ function loginWithLine() {
       </p>
 
       <p class="mt-5 text-sand-400 text-center leading-relaxed" style="font-size: 11.5px">
-        第一次用 {{ platformTab.label }} 帳號登入會自動建立帳號，不用另外註冊。<br />
-        登入即代表你同意透過 {{ platformTab.label }} 接收每日任務推播與週報告
+        第一次用 LINE 帳號登入會自動建立帳號，不用另外註冊。<br />
+        登入即代表你同意透過 LINE 接收每日任務推播與週報告
       </p>
     </div>
   </div>

@@ -1,4 +1,4 @@
-import { Router, type ErrorRequestHandler } from 'express'
+import { Router, json, type ErrorRequestHandler } from 'express'
 import * as line from '@line/bot-sdk'
 import { prisma } from '../db.js'
 import { detectIntent, pickChatReply, type Intent } from '../services/ai.js'
@@ -42,8 +42,10 @@ if (config.channelSecret) {
     res.status(200).end()
   })
 } else {
-  // 如果沒有設定 channelSecret，使用虛擬路由（用於測試）
-  lineWebhookRouter.post('/', async (req, res) => {
+  // 如果沒有設定 channelSecret，使用虛擬路由（用於測試）。這個 router 掛在全域
+  // express.json() 之前（見上方註解），所以這裡要自己補一個 json() 中間件，
+  // 不然 req.body 是 undefined，一讀 .events 就整個 500。
+  lineWebhookRouter.post('/', json(), async (req, res) => {
     console.warn('[line-webhook] No LINE_CHANNEL_SECRET configured, webhook verification skipped')
     const events = (req.body.events ?? []) as line.webhook.Event[]
     await Promise.all(events.map((event) => handleEvent(event).catch((err) => console.error('[line-webhook]', err))))

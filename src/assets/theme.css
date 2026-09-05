@@ -13,7 +13,7 @@
   --color-brand-primary-dark: #2c4a36;
   --color-brand-secondary: #3e5a3e;
   --color-brand-secondary-muted: #5a6357;
-  /* Reserved: named in README_專案架構與生產指令.md's 視覺規範 section but not
+  /* Reserved: named in docs/README_專案架構與生產指令.md's 視覺規範 section but not
      present anywhere in the standalone.html source (grepped, zero hits). Kept
      as spec-only tokens for future design use — not wired into any component. */
   --color-brand-secondary-alt: #1a5c38;
@@ -99,7 +99,6 @@
   --color-amber-bg-soft: #fff7e6;
 
   /* Blue */
-  --color-telegram-brand: #26a5e4;
   --color-link-blue: #2f6bd8;
   --color-blue-bg-soft: #eaf1ff;
   --color-blue-bg-soft-2: #dce7f5;

@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { queryClient } from '@/plugins/queryClient'
 import { queryKeys } from '@/api/queryKeys'
 
-export type BotPlatform = 'line' | 'telegram'
+export type BotPlatform = 'line'
 export type BotLang = 'zh' | 'en'
 
 export interface Milestone {
@@ -129,7 +129,7 @@ const PLAN_COLOR_PALETTE = ['#ffb21d', '#c9a876', '#2f6bd8', '#b08968']
 // There's no real auth backend yet, so login/register simulate the two account
 // states this way: this one phone number is the "existing account" with demo
 // data; any other number (or a fresh registration) is treated as brand-new
-// and lands on the empty state instead. See LOGIN_操作手冊.md.
+// and lands on the empty state instead. See docs/LOGIN_操作手冊.md.
 export const DEMO_ACCOUNT_PHONE = '0912-345-678'
 
 export const MODULE_OPTIONS = [
