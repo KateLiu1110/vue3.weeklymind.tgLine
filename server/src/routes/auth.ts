@@ -58,7 +58,7 @@ interface PendingCode {
   expiresAt: number
 }
 
-// Demo-only: no real SMS gateway is wired up (see docs/LOGIN_操作手冊.md). Codes live
+// Demo-only: no real SMS gateway is wired up. Codes live
 // in memory and are "sent" by logging to the server console; the dev response
 // also echoes the code back so the login/register pages can show a hint.
 const pendingCodes = new Map<string, PendingCode>()
