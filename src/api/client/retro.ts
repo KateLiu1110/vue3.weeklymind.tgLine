@@ -27,3 +27,26 @@ export async function createRetroGoal(input: {
 export async function deleteRetroGoal(id: string): Promise<void> {
   await apiClient.delete(`/retro/${id}`)
 }
+
+export interface RetroWeekBarDto {
+  label: string
+  date: string
+  count: number
+}
+
+export interface RetroCategoryShareDto {
+  id: string
+  name: string
+  value: number
+  color: string
+}
+
+export interface RetroSummaryDto {
+  weekBars: RetroWeekBarDto[]
+  categoryShares: RetroCategoryShareDto[]
+}
+
+export async function fetchRetroSummary(): Promise<RetroSummaryDto> {
+  const res = await apiClient.get<ApiSuccess<RetroSummaryDto>>('/retro/summary')
+  return res.data.data
+}

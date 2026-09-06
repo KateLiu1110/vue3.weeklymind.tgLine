@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import dayjs from 'dayjs'
 import { createPlan, deletePlan } from '@/api/client/plans'
 import { createMilestone } from '@/api/client/milestones'
 import {
@@ -85,6 +86,26 @@ export interface CustomTabCategory {
 }
 
 export type CustomModuleKind = 'goal' | 'board' | 'tab'
+
+// Plan.pct 的算法要跟伺服器（server/src/lib/planProgress.ts 的 syncPlanProgress）完全
+// 一致——這裡是「打勾當下」在瀏覽器本地立即更新進度環用的（不用等下一次 PUT 的網路
+// 來回），伺服器那份才是重新整理頁面後看到的正式數字，兩邊算法對不上的話，畫面會在
+// 「立即反映」跟「重新整理後」呈現不同的完成度，一樣會有「感覺沒連動」的問題。
+export function computeModulePct(mod: CustomModule): number {
+  if (mod.kind === 'goal') {
+    if (mod.dailyTasks.length === 0) return 0
+    return Math.round((mod.dailyTasks.filter((t) => t.done).length / mod.dailyTasks.length) * 100)
+  }
+  if (mod.kind === 'tab') {
+    const items = mod.tabCats.flatMap((c) => c.items)
+    if (items.length === 0) return 0
+    return Math.round((items.filter((i) => i.done).length / items.length) * 100)
+  }
+  const total = mod.boardColumns.reduce((sum, c) => sum + c.items.length, 0)
+  if (total === 0) return 0
+  const done = mod.boardColumns.find((c) => c.label === '已完成')?.items.length ?? 0
+  return Math.round((done / total) * 100)
+}
 
 export interface CustomModule {
   id: string
@@ -202,7 +223,7 @@ export const useCoreStore = defineStore('core', {
 
     boardModalOpen: false,
     boardEditId: null as string | null,
-    boardForm: { name: '', desc: '', start: '', end: '', daily: '0', weekly: '0', monthly: '0', fileName: '' },
+    boardForm: { name: '', desc: '' },
     boardTouched: false,
 
     tabItemModalOpen: false,
@@ -346,6 +367,7 @@ export const useCoreStore = defineStore('core', {
       }
 
       try {
+        const startDate = dayjs().format('YYYY-MM-DD')
         const plan = await createPlan({
           title,
           sub: this.planForm.sub.trim(),
@@ -356,6 +378,10 @@ export const useCoreStore = defineStore('core', {
           weekdays: [...this.planForm.weekdays],
           startTime: this.planForm.startTime,
           endTime: this.planForm.endTime,
+          startDate,
+          // 「預計多久完成」下拉選單先前只存在表單裡沒有真的送出去，導致計劃管理頁的
+          // 卡片一律顯示「無期限」（見 OverviewView.vue 的 planDaysLabel()）。
+          targetDate: dayjs(startDate).add(Number(this.planForm.months) || 1, 'month').format('YYYY-MM-DD'),
           linkedCustomId: mod.id,
         })
         // 用重新賦值而不是 .push()：這兩個 await（先建 CustomModule 再建 Plan）之間
@@ -455,7 +481,11 @@ export const useCoreStore = defineStore('core', {
       this.scoreEntryModalOpen = false
     },
     saveScoreEntry() {
-      if (!this.scoreEntryForm.label.trim() || !this.scoreEntryForm.value.trim()) {
+      // Vue 的 v-model 對 <input type="number"> 會自動把值轉成 number（就算沒加
+      // .number 修飾詞也一樣），不是全程都是字串，所以驗證前要先轉字串再 trim，
+      // 不然打完分數點「儲存」會直接丟 TypeError（.trim is not a function），
+      // Modal 卡住沒反應也沒有任何錯誤提示。
+      if (!this.scoreEntryForm.label.trim() || !String(this.scoreEntryForm.value).trim()) {
         this.scoreEntryTouched = true
         return
       }
@@ -533,12 +563,6 @@ export const useCoreStore = defineStore('core', {
       this.boardForm = {
         name: project?.name ?? '',
         desc: project?.caption ?? '',
-        start: '',
-        end: '',
-        daily: '0',
-        weekly: '0',
-        monthly: '0',
-        fileName: '',
       }
       this.boardTouched = false
       this.boardModalOpen = true

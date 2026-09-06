@@ -74,7 +74,7 @@ function submitFocusTask() {
   createFocusTaskMutation.mutate({
     title: ov.focusForm.title.trim(),
     module: ov.focusForm.module || 'overview',
-    moduleLabel: opt?.label ?? '計畫中心',
+    moduleLabel: opt?.label ?? '計劃管理',
     progress: Number(ov.focusForm.progress) || 0,
     due: ov.focusForm.due,
   })

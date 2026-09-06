@@ -13,6 +13,7 @@ import {
 import { detectPlatform } from '../services/linkClassifier.js'
 import { checkAndUnlockAchievements, notifyUnlocks, getUnlockedKeys, ACHIEVEMENT_KEYS } from '../lib/achievements.js'
 import { normalizeBotLang, t, CHECKLIST_KEYWORDS, WEEKLY_REPORT_KEYWORDS, RETRO_KEYWORDS } from '../services/lineMessages.js'
+import { syncPlanProgress } from '../lib/planProgress.js'
 
 // --- 初始化 LINE 設定 ---
 const config = {
@@ -192,35 +193,6 @@ async function handleLearningIntent(userId: string, replyToken: string, text: st
     data: { userId, category, title: text, source: 'line', completedAt: new Date() },
   })
   await replyMessages(replyToken, [textMessage(`收到！已記錄到「${category}」📚 繼續加油！`)])
-}
-
-// 打卡完成度要同步回 Plan.pct，不然網頁「計劃管理」頁的進度環只認網頁自己的「今日
-// 打卡」按鈕，LINE 這邊打卡完成度再高，網頁看起來還是 0%——兩邊資料各自為政，感覺
-// 像沒連動。透過 Plan.linkedCustomId 找回對應的計畫（見 core.ts 的 savePlan()）。
-async function syncPlanProgress(moduleId: string) {
-  const mod = await prisma.customModule.findUnique({
-    where: { id: moduleId },
-    include: {
-      dailyTasks: true,
-      tabCats: { include: { items: true } },
-      boardColumns: { include: { items: true } },
-    },
-  })
-  if (!mod) return
-
-  let pct = 0
-  if (mod.kind === 'goal' && mod.dailyTasks.length > 0) {
-    pct = Math.round((mod.dailyTasks.filter((t) => t.done).length / mod.dailyTasks.length) * 100)
-  } else if (mod.kind === 'tab') {
-    const items = mod.tabCats.flatMap((c) => c.items)
-    if (items.length > 0) pct = Math.round((items.filter((i) => i.done).length / items.length) * 100)
-  } else if (mod.kind === 'board') {
-    const total = mod.boardColumns.reduce((sum, c) => sum + c.items.length, 0)
-    const done = mod.boardColumns.find((c) => c.label === '已完成')?.items.length ?? 0
-    if (total > 0) pct = Math.round((done / total) * 100)
-  }
-
-  await prisma.plan.updateMany({ where: { linkedCustomId: moduleId }, data: { pct } })
 }
 
 // 「新增計畫」選目標模板時填的每日任務（見 services/line.ts 的 getCheckListFlex 動態區塊）。

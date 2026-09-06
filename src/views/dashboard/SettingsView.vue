@@ -84,20 +84,8 @@ async function selectTheme(themeId: string) {
     </div>
 
     <div class="rounded-card p-5 bg-cream-50 border border-cream-150">
-      <div class="text-sm font-medium text-ink-800 mb-3">登入資訊</div>
-      <div class="flex items-center gap-3.5">
-        <div class="flex-1">
-          <div class="text-xs text-sand-500 mb-1">手機號碼</div>
-          <div class="text-sm text-ink-900 font-medium">{{ settings.phone }}</div>
-        </div>
-        <span class="text-xs font-medium text-brand-primary cursor-pointer">修改</span>
-      </div>
-    </div>
-
-    <div class="rounded-card p-5 bg-cream-50 border border-cream-150">
       <div class="flex justify-between items-center mb-3.5">
         <span class="text-sm font-medium text-ink-800">連結分類設定</span>
-        <span class="text-xs font-medium text-brand-primary cursor-pointer">+ 新增分類</span>
       </div>
       <p class="m-0 mb-3.5 text-xs text-sand-600">貼上連結時，AI 依平台與關鍵字自動歸類</p>
       <div class="flex flex-col gap-2.5">

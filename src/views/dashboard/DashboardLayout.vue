@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { useCoreStore, PLAN_TEMPLATE_CARDS } from '@/stores/core'
+import { useCoreStore, PLAN_TEMPLATE_CARDS, computeModulePct } from '@/stores/core'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
 import { fetchMe } from '@/api/client/auth'
 import { usePlans } from '@/composables/usePlans'
 import { useMilestones } from '@/composables/useMilestones'
 import { useCustomModules } from '@/composables/useCustomModules'
-import { updateCustomModule } from '@/api/client/customModules'
-import type { CustomModuleUpdateInput } from '@/types/api'
+import { updateCustomModuleWithRetry } from '@/api/client/customModules'
 import { useAchievements } from '@/composables/useAchievements'
 import { useStreak } from '@/composables/useStreak'
 import { useToeicMutations } from '@/composables/useToeic'
@@ -95,34 +94,26 @@ watch(
 // 自訂模組（目標／看板／Tab 模板）的內容編輯目前都是直接改 Pinia state（v-model、
 // @click 裡的陣列 push/filter），沒有一個個包成 API mutation；改用整包 deep watch +
 // debounce 存檔，任何畫面上的小動作最後都會落地到後端，不用逐一去改三個模板元件。
+// 存檔失敗時的重試邏輯見 updateCustomModuleWithRetry（LineNotifyView.vue 的打卡預覽
+// 也共用同一支，避免兩邊各自維護一份重試/欄位清單）。
 let customModuleSaveTimer: ReturnType<typeof setTimeout> | undefined
 watch(
   () => core.customModules,
   () => {
+    // 立即依打勾狀態同步對應 Plan.pct，不用等下面的 debounce 存檔跑完——不然「計劃
+    // 管理」「執行中心」的進度環要等網路來回才會動，感覺打勾跟進度沒連動。伺服器那份
+    // 由 syncPlanProgress 在 PUT 存檔時一起寫回（見 routes/customModules.ts），
+    // 兩邊用同一個 computeModulePct 算法，重新整理頁面後數字要對得上。
+    for (const mod of core.customModules) {
+      const plan = core.plans.find((p) => p.linkedCustomId === mod.id)
+      if (plan) plan.pct = computeModulePct(mod)
+    }
+
     if (!auth.isLoggedIn) return
     clearTimeout(customModuleSaveTimer)
     customModuleSaveTimer = setTimeout(() => {
       for (const mod of core.customModules) {
-        const content: CustomModuleUpdateInput = {
-          title: mod.title,
-          heroTitle: mod.heroTitle,
-          heroDesc: mod.heroDesc,
-          heroSchedule: mod.heroSchedule,
-          heroCurrent: mod.heroCurrent,
-          heroTarget: mod.heroTarget,
-          examTitle: mod.examTitle,
-          scoreTitle: mod.scoreTitle,
-          lastLabel: mod.lastLabel,
-          lastScore: mod.lastScore,
-          targetLabel: mod.targetLabel,
-          targetScore: mod.targetScore,
-          dailyTasks: mod.dailyTasks,
-          scores: mod.scores,
-          examDates: mod.examDates,
-          boardColumns: mod.boardColumns,
-          tabCats: mod.tabCats,
-        }
-        updateCustomModule(mod.id, content).catch((err) => console.error('[custom-module] 自動存檔失敗', err))
+        void updateCustomModuleWithRetry(mod)
       }
     }, 600)
   },
@@ -469,7 +460,7 @@ const weekdayShort = ['一', '二', '三', '四', '五', '六', '日']
                 <span class="w-6.5 h-6.5 rounded-full bg-cream-100 text-brand-primary font-medium text-xs flex items-center justify-center shrink-0">1</span>
                 <span class="text-xs font-medium text-ink-900">新增計畫</span>
               </div>
-              <p class="m-0 text-xs leading-relaxed text-sand-600">在「計畫中心」定義核心目標與階段性里程碑</p>
+              <p class="m-0 text-xs leading-relaxed text-sand-600">在「計劃管理」定義核心目標與階段性里程碑</p>
             </div>
             <div class="flex items-center justify-center text-sand-400">→</div>
             <div class="flex-1 min-w-[130px] bg-cream-50 rounded-control p-3">

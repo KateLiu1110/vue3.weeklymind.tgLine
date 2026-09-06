@@ -321,7 +321,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
       <div v-else class="rounded-card p-6.5 text-center text-sand-400 bg-cream-50 border border-cream-150">
         <Icon name="plusCircle" :size="30" class="mx-auto" />
         <p class="mt-2.5 mb-0.5 text-sm font-medium text-sand-600">尚無執行中的計畫</p>
-        <p class="m-0 text-xs text-sand-400">在「計畫中心」新增計畫後，任務會自動顯示在這裡</p>
+        <p class="m-0 text-xs text-sand-400">在「計劃管理」新增計畫後，任務會自動顯示在這裡</p>
       </div>
     </div>
 

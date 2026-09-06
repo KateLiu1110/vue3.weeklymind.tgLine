@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useRetroStore } from '@/stores/retro'
-import { useRetroGoals, useRetroMutations } from '@/composables/useRetro'
+import { useRetroGoals, useRetroMutations, useRetroSummary } from '@/composables/useRetro'
 import { useAuthStore } from '@/stores/auth'
 import type { ApiBusinessError } from '@/api/transport/apiBusinessError'
 import Icon from '@/components/common/Icon.vue'
@@ -15,7 +15,27 @@ import { themeColor } from '@/lib/themeColor'
 const retro = useRetroStore()
 const auth = useAuthStore()
 const goalsQuery = useRetroGoals()
+const summaryQuery = useRetroSummary()
 const { createGoalMutation, deleteGoalMutation } = useRetroMutations()
+
+// 長條的視覺高度是相對本週最大值縮放（跟執行中心「本週階段進度」用同一個做法），
+// 不是真的 0-100 百分比——筆數本身才是真資料，見 server/src/routes/retro.ts 的 /summary。
+const weekBarsDisplay = computed(() => {
+  const bars = summaryQuery.data.value?.weekBars ?? []
+  const max = Math.max(1, ...bars.map((b) => b.count))
+  return bars.map((b) => ({
+    label: b.label,
+    h: b.count ? Math.round(24 + (b.count / max) * 62) : 12,
+    active: b.count > 0,
+  }))
+})
+
+const categoryShares = computed(() => summaryQuery.data.value?.categoryShares ?? [])
+const pieTotalPct = computed(() => {
+  const shares = categoryShares.value
+  if (shares.length === 0) return 0
+  return Math.round(shares.reduce((sum, c) => sum + c.value, 0) / shares.length)
+})
 
 const isLocked = computed(
   () => !auth.isLoggedIn || (goalsQuery.error.value as ApiBusinessError | null)?.code === 'FEATURE_LOCKED',
@@ -48,11 +68,11 @@ function submitGoal() {
 }
 
 const weekBarData = computed<ChartData<'bar'>>(() => ({
-  labels: retro.weekBars.map((b) => b.label),
+  labels: weekBarsDisplay.value.map((b) => b.label),
   datasets: [
     {
-      data: retro.weekBars.map((b) => b.h),
-      backgroundColor: retro.weekBars.map((b) => themeColor(b.active ? 'brand-primary' : 'sand-250')),
+      data: weekBarsDisplay.value.map((b) => b.h),
+      backgroundColor: weekBarsDisplay.value.map((b) => themeColor(b.active ? 'brand-primary' : 'sand-250')),
       borderRadius: 4,
       maxBarThickness: 28,
     },
@@ -67,11 +87,11 @@ const weekBarOptions: ChartOptions<'bar'> = {
 }
 
 const categoryPieData = computed<ChartData<'doughnut'>>(() => ({
-  labels: retro.categoryShares.map((c) => c.name),
+  labels: categoryShares.value.map((c) => c.name),
   datasets: [
     {
-      data: retro.categoryShares.map((c) => c.value),
-      backgroundColor: retro.categoryShares.map((c) => c.color),
+      data: categoryShares.value.map((c) => c.value),
+      backgroundColor: categoryShares.value.map((c) => c.color),
       borderWidth: 0,
     },
   ],
@@ -130,19 +150,22 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
           <ChartCanvas type="bar" :data="weekBarData" :options="weekBarOptions" :height="130" />
         </div>
 
-        <div class="rounded-card p-5 mt-4 flex items-center gap-7 flex-wrap bg-cream-50 border border-cream-150">
+        <div v-if="categoryShares.length === 0" class="rounded-card p-5 mt-4 text-center text-sand-400 bg-cream-50 border border-cream-150">
+          <p class="m-0 text-xs">尚無計畫可統計分類佔比，先到「計劃管理」新增計畫</p>
+        </div>
+        <div v-else class="rounded-card p-5 mt-4 flex items-center gap-7 flex-wrap bg-cream-50 border border-cream-150">
           <div>
             <div class="text-sm font-medium text-ink-800 mb-3.5">各分類達成率佔比</div>
             <div class="w-[150px] h-[150px] relative">
               <ChartCanvas type="doughnut" :data="categoryPieData" :options="categoryPieOptions" :height="150" />
               <div class="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                <span class="font-medium text-brand-primary" style="font-size: 20px">{{ retro.pieTotalPct }}%</span>
+                <span class="font-medium text-brand-primary" style="font-size: 20px">{{ pieTotalPct }}%</span>
                 <span class="text-xs text-sand-500">整體達成</span>
               </div>
             </div>
           </div>
           <div class="flex flex-col gap-2.5 flex-1 min-w-[180px]">
-            <div v-for="c in retro.categoryShares" :key="c.id" class="flex items-center gap-2.5">
+            <div v-for="c in categoryShares" :key="c.id" class="flex items-center gap-2.5">
               <span class="w-2.5 h-2.5 rounded shrink-0" :style="{ background: c.color }" />
               <span class="flex-1 text-sm text-ink-900">{{ c.name }}</span>
               <span class="text-xs font-medium text-ink-700">{{ c.value }}%</span>

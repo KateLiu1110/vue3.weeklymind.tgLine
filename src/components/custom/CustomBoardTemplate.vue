@@ -94,32 +94,12 @@ function deleteProject(id: string) {
         :class="core.boardTouched && !core.boardForm.name.trim() ? 'border-coral' : 'border-sand-200'"
       />
       <label class="text-xs font-medium text-ink-700">敘述</label>
-      <textarea v-model="core.boardForm.desc" rows="2" class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none resize-y" />
-      <div class="flex gap-3 mb-3.5">
-        <div class="flex-1">
-          <label class="text-xs font-medium text-ink-700">開始日</label>
-          <input v-model="core.boardForm.start" type="date" class="w-full mt-1.5 px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-        </div>
-        <div class="flex-1">
-          <label class="text-xs font-medium text-ink-700">完成日</label>
-          <input v-model="core.boardForm.end" type="date" class="w-full mt-1.5 px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-        </div>
-      </div>
-      <label class="text-xs font-medium text-ink-700">完成度</label>
-      <div class="flex gap-2.5 my-1.5 mb-3.5">
-        <div class="flex-1">
-          <div class="text-xs text-sand-500 mb-1">每日</div>
-          <input v-model="core.boardForm.daily" type="number" min="0" max="100" class="w-full px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-        </div>
-        <div class="flex-1">
-          <div class="text-xs text-sand-500 mb-1">每週</div>
-          <input v-model="core.boardForm.weekly" type="number" min="0" max="100" class="w-full px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-        </div>
-        <div class="flex-1">
-          <div class="text-xs text-sand-500 mb-1">每月</div>
-          <input v-model="core.boardForm.monthly" type="number" min="0" max="100" class="w-full px-2.5 py-2 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
-        </div>
-      </div>
+      <textarea
+        v-model="core.boardForm.desc"
+        rows="2"
+        placeholder="例：每日訂餐小工具．30% 完成"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none resize-y"
+      />
       <p v-if="core.boardTouched && !core.boardForm.name.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫任務名稱</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeBoardModal()">取消</button>
