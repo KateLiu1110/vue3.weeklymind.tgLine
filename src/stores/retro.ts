@@ -9,13 +9,13 @@ const PALETTE = ['#33513f', '#c9a876', '#2f6bd8', '#b08968']
 export const useRetroStore = defineStore('retro', {
   state: () => ({
     retroGoalModalOpen: false,
-    retroGoalForm: { title: '', start: '', totalDays: '' },
+    retroGoalForm: { title: '', start: '', totalDays: '', linkedPlanId: '' },
     retroGoalTouched: false,
   }),
   actions: {
     openRetroGoalModal() {
       if (!useAuthStore().requireLogin()) return
-      this.retroGoalForm = { title: '', start: '', totalDays: '' }
+      this.retroGoalForm = { title: '', start: '', totalDays: '', linkedPlanId: '' }
       this.retroGoalTouched = false
       this.retroGoalModalOpen = true
     },

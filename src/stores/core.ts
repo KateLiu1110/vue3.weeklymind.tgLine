@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import dayjs from 'dayjs'
 import { createPlan, deletePlan } from '@/api/client/plans'
-import { createMilestone } from '@/api/client/milestones'
+import { createMilestone, deleteMilestone } from '@/api/client/milestones'
 import {
   createCustomModule as apiCreateCustomModule,
   deleteCustomModule as apiDeleteCustomModule,
@@ -147,12 +147,6 @@ export const PLAN_TEMPLATE_CARDS: { kind: CustomModuleKind; icon: string; label:
 
 const PLAN_COLOR_PALETTE = ['#ffb21d', '#c9a876', '#2f6bd8', '#b08968']
 
-// There's no real auth backend yet, so login/register simulate the two account
-// states this way: this one phone number is the "existing account" with demo
-// data; any other number (or a fresh registration) is treated as brand-new
-// and lands on the empty state instead.
-export const DEMO_ACCOUNT_PHONE = '0912-345-678'
-
 export const MODULE_OPTIONS = [
   { value: 'overview', label: '計劃管理' },
   { value: 'exec', label: '執行中心' },
@@ -227,7 +221,7 @@ export const useCoreStore = defineStore('core', {
     boardTouched: false,
 
     tabItemModalOpen: false,
-    tabItemForm: { name: '', link: '' },
+    tabItemForm: { name: '' },
     tabItemTouched: false,
 
     customItemModalOpen: false,
@@ -267,6 +261,15 @@ export const useCoreStore = defineStore('core', {
       const plan = this.plans.find((p) => p.linkedCustomId === customModuleId)
       await this.deleteCustomModule(customModuleId)
       if (plan) await this.removePlan(plan.id)
+    },
+    /** 「計劃管理」計畫卡片的刪除入口：跟上面 deletePlanAndModule 是同一件事的另一個
+     * 起點（那支從模組 id 出發，這支從計畫 id 出發）——一樣要兩邊一起刪，不然自訂模組
+     * 頁面、執行中心的打卡卡片會變成沒有計畫的殭屍項目，感覺像「執行中心沒有跟著刪」。 */
+    async removePlanAndModule(planId: string) {
+      if (!useAuthStore().requireLogin()) return
+      const plan = this.plans.find((p) => p.id === planId)
+      if (plan?.linkedCustomId) await this.deleteCustomModule(plan.linkedCustomId)
+      await this.removePlan(planId)
     },
     /** Called once per login/logout transition (see DashboardLayout) to clear out
      * whichever account's local-only custom modules were showing. */
@@ -310,6 +313,16 @@ export const useCoreStore = defineStore('core', {
       if (!useAuthStore().requireLogin()) return
       this.plans = this.plans.filter((p) => p.id !== id)
       await deletePlan(id)
+    },
+    // 「計劃管理」的里程碑卡片一直沒有刪除按鈕——DashboardLayout 只在 core.milestones
+    // 是空陣列時才會用 query 資料 hydrate 一次（見 DashboardLayout.vue 的
+    // watch(milestonesQuery.data, ...)），之後都是靠各個 store action 自己直接改
+    // this.milestones 來同步，不是等 query 重新整理，所以這裡要跟 removePlan 一樣
+    // 「本地過濾 + 打 API」兩邊一起做，不能只呼叫 API。
+    async removeMilestone(id: string) {
+      if (!useAuthStore().requireLogin()) return
+      this.milestones = this.milestones.filter((m) => m.id !== id)
+      await deleteMilestone(id)
     },
 
     openHelpModal() {
@@ -597,7 +610,7 @@ export const useCoreStore = defineStore('core', {
     },
 
     openTabItemModal() {
-      this.tabItemForm = { name: '', link: '' }
+      this.tabItemForm = { name: '' }
       this.tabItemTouched = false
       this.tabItemModalOpen = true
     },

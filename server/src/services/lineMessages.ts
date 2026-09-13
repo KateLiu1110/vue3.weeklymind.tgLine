@@ -12,13 +12,16 @@ export function normalizeBotLang(lang: string | null | undefined): BotLang {
 
 // 語言關鍵字不綁定使用者當下的 botLang 設定——不管設定的語言是什麼，三種語言的
 // 關鍵字都認得，回覆內容再依 botLang 決定用哪個語言，體驗上更寬容。
-export const CHECKLIST_KEYWORDS = ['任務', 'Tasks', 'tasks', 'タスク']
+// 「打卡」「check in」是使用者最直覺會打的字（比歡迎訊息教的「任務」更自然），原本
+// 沒被收進來——打了「打卡」會被 detectIntent()（services/ai.ts）判成 chat，只收到
+// 罐頭回覆，看起來像「LINE 完全無法打卡」，其實是打卡清單卡片根本沒被叫出來。
+export const CHECKLIST_KEYWORDS = ['任務', 'Tasks', 'tasks', 'タスク', '打卡', 'checkin', 'check in', 'Check in', 'Check In']
 export const WEEKLY_REPORT_KEYWORDS = ['週報', 'Report', 'report', 'Weekly Report']
 export const RETRO_KEYWORDS = ['覆盤', 'Retro', 'retro', '振り返り']
 
 export const M = {
   welcome: {
-    zh: '歡迎加入 WeeklyMind 🐾 帳號已經自動建立好了！\n直接跟我說「今天跑了5公里」「背了20個單字」，或傳連結給我，我都會幫你記錄。\n輸入「任務」看今天的打卡清單、「週報」看本週回顧、「覆盤」看長期目標分析（解鎖後才看得到喔）。',
+    zh: '歡迎加入 WeeklyMind 🐾 帳號已經自動建立好了！\n直接跟我說「今天跑了5公里」「背了20個單字」，或傳連結給我，我都會幫你記錄。\n輸入「打卡」或「任務」看今天的打卡清單、「週報」看本週回顧、「覆盤」看長期目標分析（解鎖後才看得到喔）。',
     en: "Welcome to WeeklyMind 🐾 Your account is ready to go!\nJust tell me things like \"ran 5km today\" or \"learned 20 words\", or send me a link and I'll save it.\nType \"Tasks\" for today's checklist, \"Report\" for your weekly review, or \"Retro\" for long-term goal analysis (once unlocked).",
     ja: 'WeeklyMind へようこそ 🐾 アカウントは自動的に作成されました！\n「今日5km走った」「単語を20個覚えた」のように話しかけるか、リンクを送ってください。\n「タスク」で今日のチェックリスト、「週報」で週次レビュー、「振り返り」で長期目標の分析が見られます（解除後）。',
   },

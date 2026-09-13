@@ -8,3 +8,5 @@ dist/
 .vite/
 coverage/
 docs/DEPLOYMENT.md
+
+server/backups/

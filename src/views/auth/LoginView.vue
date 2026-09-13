@@ -75,11 +75,11 @@ function loginWithLine() {
         :disabled="newUserLoading"
         @click="tryAsNewUser"
       >
-        {{ newUserLoading ? '建立中…' : '以新人身分體驗（沒有任何資料）' }}
+        {{ newUserLoading ? '建立中…' : '以新人身分體驗（含範例資料）' }}
       </button>
       <p v-if="newUserError" class="mt-2.5 text-danger text-xs text-center">⚠ {{ newUserError }}</p>
       <p class="mt-2 text-sand-400 text-center leading-relaxed" style="font-size: 11px">
-        直接建立一個全新的空白帳號並登入，適合想先看看沒有任何資料時畫面長怎樣的人
+        直接建立一個全新帳號並登入，自動帶入範例計畫與打卡紀錄，適合想先看看完整功能長怎樣的人
       </p>
 
       <p class="mt-5 text-sand-400 text-center leading-relaxed" style="font-size: 11.5px">

@@ -7,6 +7,7 @@ export interface RetroGoalDto {
   start: string
   totalDays: number | null
   color: string
+  linkedPlanId: string | null
 }
 
 export async function fetchRetroGoals(): Promise<RetroGoalDto[]> {
@@ -19,6 +20,7 @@ export async function createRetroGoal(input: {
   start: string
   totalDays: number | null
   color: string
+  linkedPlanId: string | null
 }): Promise<RetroGoalDto> {
   const res = await apiClient.post<ApiSuccess<RetroGoalDto>>('/retro', input)
   return res.data.data

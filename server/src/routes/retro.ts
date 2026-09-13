@@ -20,8 +20,9 @@ const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
  * 打卡狀況無關。現在改成：
  * - weekBars：本週一到週日，每天的「每日任務完成／運動紀錄／多益每日打卡」筆數
  *   ——跟 lib/streak.ts 的連續打卡天數用同一份資料源，確保兩邊看到的是同一件事。
- * - categoryShares：直接用使用者的 Plan（title/pct/color）——跟計劃管理、執行中心
- *   雷達圖顯示的是同一批計畫、同一個完成度算法、同一組顏色，不是另外一套假分類。
+ * - categoryShares：計畫中心的 Plan（title/pct/color）＋執行中心「分類每日進度」
+ *   底下使用者手動新增的 ExecCategory——這兩批合起來就是執行中心畫面上看到的完整
+ *   分類清單（見 src/views/dashboard/ExecView.vue 的 catProgress），不是另外一套假分類。
  */
 retroRouter.get('/summary', async (req, res) => {
   const userId = req.userId
@@ -38,9 +39,10 @@ retroRouter.get('/summary', async (req, res) => {
   const mondayKey = toDateKey(mondayUtcAnchor)
   const mondayTaipeiMidnight = new Date(`${mondayKey}T00:00:00+08:00`)
 
-  const [counts, plans] = await Promise.all([
+  const [counts, plans, execCategories] = await Promise.all([
     getDailyActivityCounts(userId, mondayTaipeiMidnight),
     prisma.plan.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+    prisma.execCategory.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
   ])
 
   const weekBars = WEEKDAY_LABELS.map((label, i) => {
@@ -50,12 +52,21 @@ retroRouter.get('/summary', async (req, res) => {
     return { label, date: key, count: counts.get(key) ?? 0 }
   })
 
-  const categoryShares = plans.map((p) => ({ id: p.id, name: p.title, value: p.pct, color: p.color }))
+  const categoryShares = [
+    ...plans.map((p) => ({ id: p.id, name: p.title, value: p.pct, color: p.color })),
+    ...execCategories.map((c) => ({ id: c.id, name: c.name, value: c.value, color: c.color })),
+  ]
 
   res.json({ ok: true, data: { weekBars, categoryShares } })
 })
 
-const goalInput = z.object({ title: z.string().min(1), start: z.string().min(1), totalDays: z.number().nullish(), color: z.string().min(1) })
+const goalInput = z.object({
+  title: z.string().min(1),
+  start: z.string().min(1),
+  totalDays: z.number().nullish(),
+  color: z.string().min(1),
+  linkedPlanId: z.string().nullish(),
+})
 
 retroRouter.post('/', async (req, res, next) => {
   try {

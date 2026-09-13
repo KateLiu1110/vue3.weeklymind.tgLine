@@ -27,11 +27,16 @@ async function selectTheme(themeId: string) {
     <div class="rounded-card p-5 bg-cream-50 border border-cream-150">
       <div class="text-sm font-medium text-ink-800 mb-3">通訊軟體綁定</div>
       <div class="flex gap-2.5">
-        <div class="flex-1 flex items-center gap-3 p-3.5 rounded-card border bg-success-bg-soft border-brand-primary">
+        <div
+          class="flex-1 flex items-center gap-3 p-3.5 rounded-card border"
+          :class="auth.user?.lineUserId ? 'bg-success-bg-soft border-brand-primary' : 'border-cream-150'"
+        >
           <span class="w-10 h-10 rounded-xl bg-line-brand flex items-center justify-center shrink-0 text-white text-base">L</span>
           <span class="flex-1 text-left">
             <div class="text-sm font-medium text-ink-900">LINE</div>
-            <div class="text-xs mt-0.5 text-brand-primary">已綁定・目前使用中</div>
+            <div class="text-xs mt-0.5" :class="auth.user?.lineUserId ? 'text-brand-primary' : 'text-sand-500'">
+              {{ auth.user?.lineUserId ? '已綁定・目前使用中' : '尚未綁定' }}
+            </div>
           </span>
         </div>
       </div>

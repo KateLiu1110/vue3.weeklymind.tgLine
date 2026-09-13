@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useRetroStore } from '@/stores/retro'
+import { useCoreStore } from '@/stores/core'
 import { useRetroGoals, useRetroMutations, useRetroSummary } from '@/composables/useRetro'
 import { useAuthStore } from '@/stores/auth'
 import type { ApiBusinessError } from '@/api/transport/apiBusinessError'
@@ -13,6 +14,7 @@ import LockedFeature from '@/components/common/LockedFeature.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const retro = useRetroStore()
+const core = useCoreStore()
 const auth = useAuthStore()
 const goalsQuery = useRetroGoals()
 const summaryQuery = useRetroSummary()
@@ -42,8 +44,16 @@ const isLocked = computed(
 )
 const isEmpty = computed(() => (goalsQuery.data.value ?? []).length === 0)
 
+// 有連結「計畫中心」計畫的目標，進度表要顯示那個計畫的實際完成度（Plan.pct，跟計劃
+// 管理／執行中心看到的是同一個數字），不是單純用開始日期／預計天數推算的時間流逝
+// 百分比——不然這裡的「進度」跟使用者實際打卡狀況完全無關，感覺像一份舊資料。
+// 沒有連結計畫的目標（單純長期追蹤，例如「去海外工作」）維持原本的時間推算。
 const goalsDisplay = computed(() =>
   (goalsQuery.data.value ?? []).map((g) => {
+    const linkedPlan = g.linkedPlanId ? core.plans.find((p) => p.id === g.linkedPlanId) : undefined
+    if (linkedPlan) {
+      return { ...g, pct: linkedPlan.pct, label: `連動計畫「${linkedPlan.title}」・${linkedPlan.pct}%` }
+    }
     const elapsedDays = Math.max(dayjs().diff(dayjs(g.start), 'day'), 0)
     if (g.totalDays) {
       const pct = Math.min(100, Math.round((elapsedDays / g.totalDays) * 100))
@@ -63,6 +73,7 @@ function submitGoal() {
     start: retro.retroGoalForm.start,
     totalDays: retro.retroGoalForm.totalDays ? Number(retro.retroGoalForm.totalDays) : null,
     color: retro.nextColor((goalsQuery.data.value ?? []).length),
+    linkedPlanId: retro.retroGoalForm.linkedPlanId || null,
   })
   retro.closeRetroGoalModal()
 }
@@ -196,6 +207,14 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
         min="1"
         class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
       />
+      <label class="text-xs font-medium text-ink-700">連結計畫（選填，連結後進度改用該計畫的實際完成度）</label>
+      <select
+        v-model="retro.retroGoalForm.linkedPlanId"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      >
+        <option value="">不連結，用時間推算進度</option>
+        <option v-for="p in core.plans" :key="p.id" :value="p.id">{{ p.title }}</option>
+      </select>
       <p v-if="retro.retroGoalTouched && (!retro.retroGoalForm.title.trim() || !retro.retroGoalForm.start)" class="text-danger text-xs mb-2.5">
         ⚠ 請填寫目標名稱與開始日期
       </p>

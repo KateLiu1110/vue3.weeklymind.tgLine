@@ -31,7 +31,8 @@ export function useRetroMutations() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.retro.all })
 
   const createGoalMutation = useMutation({
-    mutationFn: (input: { title: string; start: string; totalDays: number | null; color: string }) => createRetroGoal(input),
+    mutationFn: (input: { title: string; start: string; totalDays: number | null; color: string; linkedPlanId: string | null }) =>
+      createRetroGoal(input),
     onSuccess: invalidate,
   })
   const deleteGoalMutation = useMutation({
