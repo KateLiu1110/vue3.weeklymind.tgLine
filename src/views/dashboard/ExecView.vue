@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useCoreStore, type Plan } from '@/stores/core'
-import { useExecStore } from '@/stores/exec'
+import { useExecStore, type CategoryProgress } from '@/stores/exec'
 import { usePlanMutations } from '@/composables/usePlans'
+import { useExecCategories, useExecCategoryMutations } from '@/composables/useExecCategories'
 import { useStreak } from '@/composables/useStreak'
 import { useAuthStore } from '@/stores/auth'
+import { ApiBusinessError } from '@/api/transport/apiBusinessError'
 import Icon from '@/components/common/Icon.vue'
 import ChartCanvas from '@/components/common/ChartCanvas.vue'
 import Modal from '@/components/common/Modal.vue'
@@ -21,9 +23,100 @@ const { checkinPlanMutation } = usePlanMutations()
 const streakQuery = useStreak()
 const streakDays = computed(() => streakQuery.data.value ?? 0)
 
+// 打卡按鈕之前完全沒有錯誤處理——mutation 失敗（連線問題、登入過期）時畫面上什麼都
+// 不會發生，使用者只會覺得「按了沒反應、沒有打卡成功」，卻看不到任何錯誤訊息可以
+// 判斷原因。現在失敗時在按鈕下面顯示訊息；如果是登入過期（token 失效），順便清掉
+// 本地過期的登入狀態並跳出登入提示，不然使用者會一直卡在「看起來已登入但每次操作
+// 都悄悄失敗」的狀態。
+const checkinErrorPlanId = ref<string | null>(null)
+const checkinErrorMessage = ref('')
+
+const execCategoriesQuery = useExecCategories()
+const { createExecCategoryMutation, deleteExecCategoryMutation } = useExecCategoryMutations()
+const MANUAL_CAT_PALETTE = ['#33513f', '#c9a876', '#2f6bd8', '#b08968']
+
+// 「分類每日進度」＝每個計畫自動生成一筆（跟計畫完成度 %數連動，不可刪除）＋使用者
+// 額外手動新增的分類（可刪除，數值自己輸入，存在後端 ExecCategory）。之前這裡是純
+// 前端本地陣列，沒有對應計畫也沒有後端資料表，新增/刪除重新整理就消失，也感覺不到
+// 「連動計畫完成進度」——現在自動那批直接讀 core.plans 的 pct。
+const catProgress = computed<CategoryProgress[]>(() => [
+  ...core.plans.map((p) => ({ id: `plan:${p.id}`, name: p.title, value: p.pct, color: p.color, auto: true })),
+  ...(execCategoriesQuery.data.value ?? []).map((c, i) => ({
+    id: c.id,
+    name: c.name,
+    value: c.value,
+    color: c.color || MANUAL_CAT_PALETTE[i % MANUAL_CAT_PALETTE.length],
+    auto: false,
+  })),
+])
+
+function saveExecCat() {
+  if (!exec.execCatForm.name.trim()) {
+    exec.execCatTouched = true
+    return
+  }
+  const manualCount = execCategoriesQuery.data.value?.length ?? 0
+  createExecCategoryMutation.mutate({
+    name: exec.execCatForm.name.trim(),
+    value: Number(exec.execCatForm.value) || 0,
+    color: MANUAL_CAT_PALETTE[manualCount % MANUAL_CAT_PALETTE.length],
+  })
+  exec.closeExecCatModal()
+}
+
+/** 「今日打卡」＝完成今天對應的任務：把計畫底下自訂模組裡下一個還沒完成的項目打勾，
+ * 讓進度環（pct）跟著動——不然打卡只累加 checkinsDone，畫面上的完成度百分比完全沒有
+ * 反應，使用者會覺得「打卡」跟「進度」是兩件沒有關聯的事。直接改 core.customModules，
+ * 沿用 DashboardLayout.vue 既有的 deep watch：那裡會立即重算 plan.pct 並 debounce 存檔，
+ * 不需要在這裡另外處理。已經全部完成的模組（沒有剩餘項目）就不做事，打卡次數照常累加。 */
+function markNextTaskDone(plan?: Plan) {
+  if (!plan?.linkedCustomId) return
+  const mod = core.customModules.find((m) => m.id === plan.linkedCustomId)
+  if (!mod) return
+  if (mod.kind === 'goal') {
+    const task = mod.dailyTasks.find((t) => !t.done)
+    if (task) task.done = true
+    return
+  }
+  if (mod.kind === 'tab') {
+    for (const cat of mod.tabCats) {
+      const item = cat.items.find((i) => !i.done)
+      if (item) {
+        item.done = true
+        return
+      }
+    }
+    return
+  }
+  // board kind：沒有 done 布林值，「完成」＝卡片被移到「已完成」欄——拿第一個非「已完成」
+  // 欄位裡的第一張卡片搬過去，跟看板本身「拖到已完成欄＝做完了」的操作邏輯一致。
+  const doneCol = mod.boardColumns.find((c) => c.label === '已完成')
+  if (!doneCol) return
+  for (const col of mod.boardColumns) {
+    if (col === doneCol || col.items.length === 0) continue
+    const [item] = col.items.splice(0, 1)
+    doneCol.items.push(item)
+    return
+  }
+}
+
 function checkin(planId: string) {
   if (!auth.requireLogin()) return
-  checkinPlanMutation.mutate(planId)
+  checkinErrorPlanId.value = null
+  markNextTaskDone(core.plans.find((p) => p.id === planId))
+  checkinPlanMutation.mutate(planId, {
+    onError: (err) => {
+      checkinErrorPlanId.value = planId
+      checkinErrorMessage.value = err instanceof ApiBusinessError ? err.message : '打卡失敗，請稍後再試'
+      if (err instanceof ApiBusinessError && err.code === 'UNAUTHORIZED') {
+        auth.logout()
+        auth.promptLogin()
+      }
+    },
+    onSuccess: () => {
+      if (checkinErrorPlanId.value === planId) checkinErrorPlanId.value = null
+    },
+  })
 }
 
 /** 卡片底下還沒有任務時，「新增任務」直接帶去該計畫的編輯頁——沿用那裡既有的
@@ -215,15 +308,15 @@ const stageBarOptions: ChartOptions<'bar'> = {
         <span class="text-xs font-medium text-ink-800">分類每日進度</span>
         <span class="text-xs text-brand-primary font-medium cursor-pointer" @click="exec.openExecCatModal()">＋ 新增分類</span>
       </div>
-      <p v-if="exec.catProgress.length === 0" class="m-0 mt-2.5 text-xs text-sand-400">尚無分類，點擊「＋ 新增分類」建立第一筆</p>
+      <p v-if="catProgress.length === 0" class="m-0 mt-2.5 text-xs text-sand-400">尚無分類，點擊「＋ 新增分類」建立第一筆</p>
       <div v-else class="flex flex-col gap-2.5 mt-2.5">
-        <div v-for="c in exec.catProgress" :key="c.id">
+        <div v-for="c in catProgress" :key="c.id">
           <div class="flex justify-between items-center text-xs text-ink-700 mb-1">
             <span>{{ c.name }}</span>
             <span class="flex items-center gap-2">
               {{ c.value }}%
               <span v-if="c.auto" class="text-xs text-sand-400">自動</span>
-              <span v-else class="cursor-pointer text-danger flex" @click="exec.removeCategory(c.id)"><Icon name="trash" :size="13" /></span>
+              <span v-else class="cursor-pointer text-danger flex" @click="deleteExecCategoryMutation.mutate(c.id)"><Icon name="trash" :size="13" /></span>
             </span>
           </div>
           <div class="h-1.5 rounded-full bg-cream-150 overflow-hidden">
@@ -308,6 +401,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
             <Icon v-if="checkinPlanMutation.isPending.value" name="refresh" :size="12" class="animate-spin" />
             ✓ 今日打卡（已 {{ p.checkinsDone }} 次）
           </button>
+          <p v-if="checkinErrorPlanId === p.id" class="m-0 mt-1.5 text-xs text-danger">⚠ {{ checkinErrorMessage }}</p>
           <button
             v-else
             type="button"
@@ -321,7 +415,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
       <div v-else class="rounded-card p-6.5 text-center text-sand-400 bg-cream-50 border border-cream-150">
         <Icon name="plusCircle" :size="30" class="mx-auto" />
         <p class="mt-2.5 mb-0.5 text-sm font-medium text-sand-600">尚無執行中的計畫</p>
-        <p class="m-0 text-xs text-sand-400">在「計畫中心」新增計畫後，任務會自動顯示在這裡</p>
+        <p class="m-0 text-xs text-sand-400">在「計劃管理」新增計畫後，任務會自動顯示在這裡</p>
       </div>
     </div>
 
@@ -345,7 +439,7 @@ const stageBarOptions: ChartOptions<'bar'> = {
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="exec.closeExecCatModal()">
           取消
         </button>
-        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="exec.saveExecCat()">
+        <button type="button" class="flex-1 py-2.5 rounded-control bg-brand-primary text-white text-sm font-medium cursor-pointer" @click="saveExecCat()">
           儲存
         </button>
       </div>

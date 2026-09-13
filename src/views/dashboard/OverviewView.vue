@@ -13,7 +13,7 @@ const core = useCoreStore()
 const ov = useOverviewStore()
 const settings = useSettingsStore()
 
-// 臨時待辦事項：隨手記的一次性任務，跟計畫/里程碑一樣是真的打 API（見 api-architecture.md §2.4）。
+// 臨時待辦事項：隨手記的一次性任務，跟計畫/里程碑一樣是真的打 API（見 docs/api-architecture.md §2.4）。
 const dailyTasksQuery = useDailyTasks()
 const dailyTaskMutations = useDailyTaskMutations()
 const dailyTaskDraft = ref('')
@@ -74,7 +74,7 @@ function submitFocusTask() {
   createFocusTaskMutation.mutate({
     title: ov.focusForm.title.trim(),
     module: ov.focusForm.module || 'overview',
-    moduleLabel: opt?.label ?? '計畫中心',
+    moduleLabel: opt?.label ?? '計劃管理',
     progress: Number(ov.focusForm.progress) || 0,
     due: ov.focusForm.due,
   })
@@ -357,9 +357,12 @@ const monthTopMilestone = computed(() =>
         >
           <img :src="settings.avatarSrc" class="w-9.5 h-9.5 rounded-xl object-cover shrink-0" />
           <div class="flex-1 min-w-0">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center gap-1.5">
               <span class="text-sm font-medium text-ink-900 whitespace-nowrap overflow-hidden text-ellipsis">{{ ms.title }}</span>
-              <span class="text-xs px-2 py-0.5 rounded-full shrink-0 ml-1.5" :style="{ background: ms.tagBg, color: ms.tagCol }">{{ ms.tag }}</span>
+              <span class="flex items-center gap-1.5 shrink-0">
+                <span class="text-xs px-2 py-0.5 rounded-full" :style="{ background: ms.tagBg, color: ms.tagCol }">{{ ms.tag }}</span>
+                <span class="cursor-pointer text-danger flex" @click="core.removeMilestone(ms.id)"><Icon name="trash" :size="13" /></span>
+              </span>
             </div>
             <p class="my-1.5 text-xs text-sand-500">{{ ms.desc }}</p>
             <div class="relative h-4.5 rounded-full bg-cream-175 overflow-hidden">
@@ -432,7 +435,7 @@ const monthTopMilestone = computed(() =>
             <div class="text-xs text-sand-500 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{{ p.sub }}</div>
             <div class="text-xs text-clay-500 mt-0.5 whitespace-nowrap">已打卡 {{ p.checkinsDone }} 次</div>
           </div>
-          <span class="cursor-pointer text-danger shrink-0" @click="core.removePlan(p.id)"><Icon name="trash" :size="13" /></span>
+          <span class="cursor-pointer text-danger shrink-0" @click="core.removePlanAndModule(p.id)"><Icon name="trash" :size="13" /></span>
         </div>
       </div>
     </div>

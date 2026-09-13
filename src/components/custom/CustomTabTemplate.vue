@@ -113,8 +113,6 @@ function deleteItem(id: string) {
         class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
         :class="core.tabItemTouched && !core.tabItemForm.name.trim() ? 'border-coral' : 'border-sand-200'"
       />
-      <label class="text-xs font-medium text-ink-700">貼上連結（選填）</label>
-      <input v-model="core.tabItemForm.link" placeholder="https://..." class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none" />
       <p v-if="core.tabItemTouched && !core.tabItemForm.name.trim()" class="text-danger text-xs mb-2.5">⚠ 請填寫項目名稱</p>
       <div class="flex gap-2.5 mt-2">
         <button type="button" class="flex-1 py-2.5 rounded-control border border-sand-200 text-ink-700 text-sm font-medium cursor-pointer" @click="core.closeTabItemModal()">取消</button>

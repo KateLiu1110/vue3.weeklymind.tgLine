@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
 import { requireAuth } from '../middleware/auth.js'
+import { checkAndNotifyAchievementsSafely } from '../lib/achievements.js'
 
 export const dailyTasksRouter = Router()
 dailyTasksRouter.use(requireAuth)
@@ -31,6 +32,10 @@ dailyTasksRouter.post('/', async (req, res, next) => {
       data: { ...body, userId: req.userId, source: 'web', completedAt: null },
     })
     res.status(201).json({ ok: true, data: task })
+    // lib/achievements.ts 的 getTotalCheckins 把「有幾筆臨時待辦」算進累積打卡次數
+    // （不分完成與否），但先前只有 Plan 的「今日打卡」跟 LINE 訊息會觸發解鎖判斷，
+    // 單靠新增待辦事項永遠不會真的解鎖——這裡補上。
+    void checkAndNotifyAchievementsSafely(req.userId)
   } catch (err) {
     next(err)
   }
@@ -45,6 +50,7 @@ dailyTasksRouter.patch('/:id/toggle', async (req, res, next) => {
       data: { completedAt: existing.completedAt ? null : new Date() },
     })
     res.json({ ok: true, data: task })
+    void checkAndNotifyAchievementsSafely(req.userId)
   } catch (err) {
     next(err)
   }

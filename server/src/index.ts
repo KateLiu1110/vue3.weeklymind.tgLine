@@ -6,6 +6,7 @@ import { authRouter } from './routes/auth.js'
 import { cronRouter } from './routes/cron.js'
 import { customModulesRouter } from './routes/customModules.js'
 import { dailyTasksRouter } from './routes/dailyTasks.js'
+import { execCategoriesRouter } from './routes/execCategories.js'
 import { liffAuthRouter } from './routes/liffAuth.js'
 import { lineLoginRouter } from './routes/lineLogin.js'
 import { lineWebhookRouter } from './routes/lineWebhook.js'
@@ -54,6 +55,7 @@ app.use('/api/achievements', achievementsRouter)
 app.use('/api/overview', overviewRouter)
 app.use('/api/streak', streakRouter)
 app.use('/api/custom-modules', customModulesRouter)
+app.use('/api/exec-categories', execCategoriesRouter)
 
 app.use(errorHandler)
 

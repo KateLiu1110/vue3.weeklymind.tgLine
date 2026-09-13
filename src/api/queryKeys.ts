@@ -35,4 +35,7 @@ export const queryKeys = {
   customModules: {
     all: ['customModules'] as const,
   },
+  execCategories: {
+    all: ['execCategories'] as const,
+  },
 }

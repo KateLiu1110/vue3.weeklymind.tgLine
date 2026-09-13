@@ -3,7 +3,8 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useRetroStore } from '@/stores/retro'
-import { useRetroGoals, useRetroMutations } from '@/composables/useRetro'
+import { useCoreStore } from '@/stores/core'
+import { useRetroGoals, useRetroMutations, useRetroSummary } from '@/composables/useRetro'
 import { useAuthStore } from '@/stores/auth'
 import type { ApiBusinessError } from '@/api/transport/apiBusinessError'
 import Icon from '@/components/common/Icon.vue'
@@ -13,17 +14,46 @@ import LockedFeature from '@/components/common/LockedFeature.vue'
 import { themeColor } from '@/lib/themeColor'
 
 const retro = useRetroStore()
+const core = useCoreStore()
 const auth = useAuthStore()
 const goalsQuery = useRetroGoals()
+const summaryQuery = useRetroSummary()
 const { createGoalMutation, deleteGoalMutation } = useRetroMutations()
+
+// 長條的視覺高度是相對本週最大值縮放（跟執行中心「本週階段進度」用同一個做法），
+// 不是真的 0-100 百分比——筆數本身才是真資料，見 server/src/routes/retro.ts 的 /summary。
+const weekBarsDisplay = computed(() => {
+  const bars = summaryQuery.data.value?.weekBars ?? []
+  const max = Math.max(1, ...bars.map((b) => b.count))
+  return bars.map((b) => ({
+    label: b.label,
+    h: b.count ? Math.round(24 + (b.count / max) * 62) : 12,
+    active: b.count > 0,
+  }))
+})
+
+const categoryShares = computed(() => summaryQuery.data.value?.categoryShares ?? [])
+const pieTotalPct = computed(() => {
+  const shares = categoryShares.value
+  if (shares.length === 0) return 0
+  return Math.round(shares.reduce((sum, c) => sum + c.value, 0) / shares.length)
+})
 
 const isLocked = computed(
   () => !auth.isLoggedIn || (goalsQuery.error.value as ApiBusinessError | null)?.code === 'FEATURE_LOCKED',
 )
 const isEmpty = computed(() => (goalsQuery.data.value ?? []).length === 0)
 
+// 有連結「計畫中心」計畫的目標，進度表要顯示那個計畫的實際完成度（Plan.pct，跟計劃
+// 管理／執行中心看到的是同一個數字），不是單純用開始日期／預計天數推算的時間流逝
+// 百分比——不然這裡的「進度」跟使用者實際打卡狀況完全無關，感覺像一份舊資料。
+// 沒有連結計畫的目標（單純長期追蹤，例如「去海外工作」）維持原本的時間推算。
 const goalsDisplay = computed(() =>
   (goalsQuery.data.value ?? []).map((g) => {
+    const linkedPlan = g.linkedPlanId ? core.plans.find((p) => p.id === g.linkedPlanId) : undefined
+    if (linkedPlan) {
+      return { ...g, pct: linkedPlan.pct, label: `連動計畫「${linkedPlan.title}」・${linkedPlan.pct}%` }
+    }
     const elapsedDays = Math.max(dayjs().diff(dayjs(g.start), 'day'), 0)
     if (g.totalDays) {
       const pct = Math.min(100, Math.round((elapsedDays / g.totalDays) * 100))
@@ -43,16 +73,17 @@ function submitGoal() {
     start: retro.retroGoalForm.start,
     totalDays: retro.retroGoalForm.totalDays ? Number(retro.retroGoalForm.totalDays) : null,
     color: retro.nextColor((goalsQuery.data.value ?? []).length),
+    linkedPlanId: retro.retroGoalForm.linkedPlanId || null,
   })
   retro.closeRetroGoalModal()
 }
 
 const weekBarData = computed<ChartData<'bar'>>(() => ({
-  labels: retro.weekBars.map((b) => b.label),
+  labels: weekBarsDisplay.value.map((b) => b.label),
   datasets: [
     {
-      data: retro.weekBars.map((b) => b.h),
-      backgroundColor: retro.weekBars.map((b) => themeColor(b.active ? 'brand-primary' : 'sand-250')),
+      data: weekBarsDisplay.value.map((b) => b.h),
+      backgroundColor: weekBarsDisplay.value.map((b) => themeColor(b.active ? 'brand-primary' : 'sand-250')),
       borderRadius: 4,
       maxBarThickness: 28,
     },
@@ -67,11 +98,11 @@ const weekBarOptions: ChartOptions<'bar'> = {
 }
 
 const categoryPieData = computed<ChartData<'doughnut'>>(() => ({
-  labels: retro.categoryShares.map((c) => c.name),
+  labels: categoryShares.value.map((c) => c.name),
   datasets: [
     {
-      data: retro.categoryShares.map((c) => c.value),
-      backgroundColor: retro.categoryShares.map((c) => c.color),
+      data: categoryShares.value.map((c) => c.value),
+      backgroundColor: categoryShares.value.map((c) => c.color),
       borderWidth: 0,
     },
   ],
@@ -130,19 +161,22 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
           <ChartCanvas type="bar" :data="weekBarData" :options="weekBarOptions" :height="130" />
         </div>
 
-        <div class="rounded-card p-5 mt-4 flex items-center gap-7 flex-wrap bg-cream-50 border border-cream-150">
+        <div v-if="categoryShares.length === 0" class="rounded-card p-5 mt-4 text-center text-sand-400 bg-cream-50 border border-cream-150">
+          <p class="m-0 text-xs">尚無計畫可統計分類佔比，先到「計劃管理」新增計畫</p>
+        </div>
+        <div v-else class="rounded-card p-5 mt-4 flex items-center gap-7 flex-wrap bg-cream-50 border border-cream-150">
           <div>
             <div class="text-sm font-medium text-ink-800 mb-3.5">各分類達成率佔比</div>
             <div class="w-[150px] h-[150px] relative">
               <ChartCanvas type="doughnut" :data="categoryPieData" :options="categoryPieOptions" :height="150" />
               <div class="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                <span class="font-medium text-brand-primary" style="font-size: 20px">{{ retro.pieTotalPct }}%</span>
+                <span class="font-medium text-brand-primary" style="font-size: 20px">{{ pieTotalPct }}%</span>
                 <span class="text-xs text-sand-500">整體達成</span>
               </div>
             </div>
           </div>
           <div class="flex flex-col gap-2.5 flex-1 min-w-[180px]">
-            <div v-for="c in retro.categoryShares" :key="c.id" class="flex items-center gap-2.5">
+            <div v-for="c in categoryShares" :key="c.id" class="flex items-center gap-2.5">
               <span class="w-2.5 h-2.5 rounded shrink-0" :style="{ background: c.color }" />
               <span class="flex-1 text-sm text-ink-900">{{ c.name }}</span>
               <span class="text-xs font-medium text-ink-700">{{ c.value }}%</span>
@@ -173,6 +207,14 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
         min="1"
         class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
       />
+      <label class="text-xs font-medium text-ink-700">連結計畫（選填，連結後進度改用該計畫的實際完成度）</label>
+      <select
+        v-model="retro.retroGoalForm.linkedPlanId"
+        class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border border-sand-200 bg-white text-sm text-ink-900 outline-none"
+      >
+        <option value="">不連結，用時間推算進度</option>
+        <option v-for="p in core.plans" :key="p.id" :value="p.id">{{ p.title }}</option>
+      </select>
       <p v-if="retro.retroGoalTouched && (!retro.retroGoalForm.title.trim() || !retro.retroGoalForm.start)" class="text-danger text-xs mb-2.5">
         ⚠ 請填寫目標名稱與開始日期
       </p>

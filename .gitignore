@@ -7,4 +7,6 @@ dist/
 *.tsbuildinfo
 .vite/
 coverage/
-DEPLOYMENT.md
+docs/DEPLOYMENT.md
+
+server/backups/

@@ -57,12 +57,6 @@ export const useExecStore = defineStore('exec', {
     selectedDayIndex: null as number | null,
     taskDoneMap: {} as Record<string, boolean>,
 
-    // 這份清單目前完全是前端本地狀態，沒有對應的後端資料表——新增計畫、刪計畫、打卡
-    // 都不會讓它變動，「+新增分類」加的項目也只存在瀏覽器記憶體，重新整理就消失。
-    // 之前這裡放了 4 筆示範資料（運動/多益英文/作品集/生活雜項），沒有計畫的新帳號
-    // 也會看到這些假數字，改成空陣列避免看起來像有真實紀錄。
-    catProgress: [] as CategoryProgress[],
-
     execCatModalOpen: false,
     execCatForm: { name: '', value: '0' },
     execCatTouched: false,
@@ -241,30 +235,12 @@ export const useExecStore = defineStore('exec', {
     toggleTask(key: string) {
       this.taskDoneMap[key] = !this.taskDoneMap[key]
     },
-    removeCategory(id: string) {
-      this.catProgress = this.catProgress.filter((c) => c.id !== id)
-    },
     openExecCatModal() {
       this.execCatForm = { name: '', value: '0' }
       this.execCatTouched = false
       this.execCatModalOpen = true
     },
     closeExecCatModal() {
-      this.execCatModalOpen = false
-    },
-    saveExecCat() {
-      if (!this.execCatForm.name.trim()) {
-        this.execCatTouched = true
-        return
-      }
-      const palette = ['#33513f', '#c9a876', '#2f6bd8', '#b08968']
-      this.catProgress.push({
-        id: 'c' + Date.now(),
-        name: this.execCatForm.name.trim(),
-        value: Number(this.execCatForm.value) || 0,
-        color: palette[this.catProgress.length % palette.length],
-        auto: false,
-      })
       this.execCatModalOpen = false
     },
     openMonthlyReport() {

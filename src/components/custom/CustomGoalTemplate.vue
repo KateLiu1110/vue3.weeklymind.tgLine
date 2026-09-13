@@ -100,9 +100,11 @@ const scoreChartOptions: ChartOptions<'bar'> = {
       <div v-if="mod.dailyTasks.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
         <div v-for="dt in mod.dailyTasks" :key="dt.id" class="rounded-card p-4 bg-cream-50 border border-cream-150">
           <div class="flex items-center justify-between gap-1.5">
-            <span class="flex items-center gap-2 min-w-0 overflow-hidden cursor-pointer" @click="core.openDailyTaskModal(dt.id)">
-              <Icon name="checkCircle" :size="15" :class="dt.done ? 'text-brand-primary' : 'text-sand-300'" />
-              <span class="text-sm font-medium text-ink-900 overflow-hidden text-ellipsis whitespace-nowrap">{{ dt.title }}</span>
+            <span class="flex items-center gap-2 min-w-0 overflow-hidden">
+              <span class="cursor-pointer flex shrink-0" @click="dt.done = !dt.done">
+                <Icon name="checkCircle" :size="15" :class="dt.done ? 'text-brand-primary' : 'text-sand-300'" />
+              </span>
+              <span class="text-sm font-medium text-ink-900 overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer" @click="core.openDailyTaskModal(dt.id)">{{ dt.title }}</span>
             </span>
             <span class="cursor-pointer text-danger shrink-0 flex" @click="mod.dailyTasks = mod.dailyTasks.filter((t) => t.id !== dt.id)">
               <Icon name="trash" :size="13" />
@@ -229,9 +231,9 @@ const scoreChartOptions: ChartOptions<'bar'> = {
         v-model="core.scoreEntryForm.value"
         type="number"
         class="w-full mt-1.5 mb-3.5 px-3 py-2.5 rounded-control border bg-white text-sm text-ink-900 outline-none"
-        :class="core.scoreEntryTouched && !core.scoreEntryForm.value.trim() ? 'border-coral' : 'border-sand-200'"
+        :class="core.scoreEntryTouched && !String(core.scoreEntryForm.value).trim() ? 'border-coral' : 'border-sand-200'"
       />
-      <p v-if="core.scoreEntryTouched && (!core.scoreEntryForm.label.trim() || !core.scoreEntryForm.value.trim())" class="text-danger text-xs mb-2.5">
+      <p v-if="core.scoreEntryTouched && (!core.scoreEntryForm.label.trim() || !String(core.scoreEntryForm.value).trim())" class="text-danger text-xs mb-2.5">
         ⚠ 請填寫標籤與紀錄
       </p>
       <div class="flex gap-2.5 mt-2">

@@ -5,6 +5,8 @@ import { prisma } from '../db.js'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
 import { requireAuth } from '../middleware/auth.js'
 import { notifyNewTask } from '../services/line.js'
+import { checkAndNotifyAchievementsSafely } from '../lib/achievements.js'
+import { syncPlanProgress } from '../lib/planProgress.js'
 
 export const customModulesRouter = Router()
 customModulesRouter.use(requireAuth)
@@ -234,11 +236,18 @@ customModulesRouter.put('/:id', async (req, res, next) => {
     ])
 
     const updated = await prisma.customModule.findUniqueOrThrow({ where: { id: moduleId }, include: moduleInclude })
+    // 網頁存檔也要同步 Plan.pct，跟 LINE 打卡（lineWebhook.ts）共用同一支——不然只有
+    // LINE 打卡會反映在「計劃管理」「執行中心」的進度環上，網頁自己打勾完全沒反應。
+    await syncPlanProgress(moduleId)
     res.json({ ok: true, data: toModulePayload(updated) })
 
     if (addedNames.length > 0 || modifiedNames.length > 0) {
       void notifyNewTask(req.userId, existing.title, existing.kind, { added: addedNames, modified: modifiedNames })
     }
+    // 目標/看板/Tab 範本打勾是使用者實際打卡的主要途徑，先前只有 Plan 的「今日打卡」
+    // 按鈕跟 LINE 訊息會觸發解鎖判斷，這裡漏掉了，導致光靠網頁打勾永遠解鎖不了覆盤
+    // 中心／主題色彩（見 lib/achievements.ts 的 getCustomModuleCheckins）。
+    void checkAndNotifyAchievementsSafely(req.userId)
   } catch (err) {
     next(err)
   }
