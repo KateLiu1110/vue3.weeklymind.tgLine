@@ -18,7 +18,7 @@ const core = useCoreStore()
 const auth = useAuthStore()
 const goalsQuery = useRetroGoals()
 const summaryQuery = useRetroSummary()
-const { createGoalMutation, deleteGoalMutation } = useRetroMutations()
+const { createGoalMutation, updateGoalMutation, deleteGoalMutation } = useRetroMutations()
 
 // 長條的視覺高度是相對本週最大值縮放（跟執行中心「本週階段進度」用同一個做法），
 // 不是真的 0-100 百分比——筆數本身才是真資料，見 server/src/routes/retro.ts 的 /summary。
@@ -42,39 +42,63 @@ const pieTotalPct = computed(() => {
 const isLocked = computed(
   () => !auth.isLoggedIn || (goalsQuery.error.value as ApiBusinessError | null)?.code === 'FEATURE_LOCKED',
 )
-const isEmpty = computed(() => (goalsQuery.data.value ?? []).length === 0)
-
 // 有連結「計畫中心」計畫的目標，進度表要顯示那個計畫的實際完成度（Plan.pct，跟計劃
 // 管理／執行中心看到的是同一個數字），不是單純用開始日期／預計天數推算的時間流逝
 // 百分比——不然這裡的「進度」跟使用者實際打卡狀況完全無關，感覺像一份舊資料。
 // 沒有連結計畫的目標（單純長期追蹤，例如「去海外工作」）維持原本的時間推算。
-const goalsDisplay = computed(() =>
+const manualGoalsDisplay = computed(() =>
   (goalsQuery.data.value ?? []).map((g) => {
     const linkedPlan = g.linkedPlanId ? core.plans.find((p) => p.id === g.linkedPlanId) : undefined
     if (linkedPlan) {
-      return { ...g, pct: linkedPlan.pct, label: `連動計畫「${linkedPlan.title}」・${linkedPlan.pct}%` }
+      return { ...g, pct: linkedPlan.pct, color: g.color, label: `連動計畫「${linkedPlan.title}」・${linkedPlan.pct}%`, auto: false }
     }
     const elapsedDays = Math.max(dayjs().diff(dayjs(g.start), 'day'), 0)
     if (g.totalDays) {
       const pct = Math.min(100, Math.round((elapsedDays / g.totalDays) * 100))
-      return { ...g, pct, label: `預計 ${g.totalDays} 天・目前第 ${elapsedDays + 1} 天` }
+      return { ...g, pct, label: `預計 ${g.totalDays} 天・目前第 ${elapsedDays + 1} 天`, auto: false }
     }
-    return { ...g, pct: Math.min(100, Math.round((elapsedDays / (52 * 7)) * 100)), label: `持續進行・已 ${elapsedDays} 天` }
+    return { ...g, pct: Math.min(100, Math.round((elapsedDays / (52 * 7)) * 100)), label: `持續進行・已 ${elapsedDays} 天`, auto: false }
   }),
 )
+
+// 每個計畫（計劃管理新增的那些）自動出現一筆，不用另外手動「新增目標」再選連結
+// ——跟執行中心「分類每日進度」的 catProgress 是同一個做法（見 ExecView.vue）：
+// 自動這批不可刪除／不可編輯（進度就是 Plan.pct，沒什麼好編輯的，真要調整/刪除
+// 直接去「計劃管理」動那個計畫）。已經被手動目標連結走的計畫不重複出現一次。
+const goalsDisplay = computed(() => {
+  const linkedPlanIds = new Set(manualGoalsDisplay.value.map((g) => g.linkedPlanId).filter((id): id is string => !!id))
+  const autoRows = core.plans
+    .filter((p) => !linkedPlanIds.has(p.id))
+    .map((p) => ({
+      id: `plan:${p.id}`,
+      title: p.title,
+      pct: p.pct,
+      color: p.color,
+      label: `${p.pct}%`,
+      linkedPlanId: null as string | null,
+      auto: true,
+    }))
+  return [...autoRows, ...manualGoalsDisplay.value]
+})
+const isEmpty = computed(() => goalsDisplay.value.length === 0)
 
 function submitGoal() {
   if (!retro.retroGoalForm.title.trim() || !retro.retroGoalForm.start) {
     retro.retroGoalTouched = true
     return
   }
-  createGoalMutation.mutate({
+  const input = {
     title: retro.retroGoalForm.title.trim(),
     start: retro.retroGoalForm.start,
     totalDays: retro.retroGoalForm.totalDays ? Number(retro.retroGoalForm.totalDays) : null,
-    color: retro.nextColor((goalsQuery.data.value ?? []).length),
     linkedPlanId: retro.retroGoalForm.linkedPlanId || null,
-  })
+  }
+  if (retro.retroGoalEditId) {
+    // 編輯保留原本的顏色，不重新分配——不然舊目標在圖表/清單上的顏色會無故跳掉。
+    updateGoalMutation.mutate({ id: retro.retroGoalEditId, input })
+  } else {
+    createGoalMutation.mutate({ ...input, color: retro.nextColor((goalsQuery.data.value ?? []).length) })
+  }
   retro.closeRetroGoalModal()
 }
 
@@ -146,7 +170,10 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
                 <span>{{ g.title }}</span>
                 <span class="flex items-center gap-2">
                   {{ g.label }}
-                  <span class="cursor-pointer text-danger flex" @click="deleteGoalMutation.mutate(g.id)"><Icon name="trash" :size="13" /></span>
+                  <template v-if="!g.auto">
+                    <span class="cursor-pointer text-sand-500 flex" @click="retro.openRetroGoalModal(g)"><Icon name="edit" :size="13" /></span>
+                    <span class="cursor-pointer text-danger flex" @click="deleteGoalMutation.mutate(g.id)"><Icon name="trash" :size="13" /></span>
+                  </template>
                 </span>
               </div>
               <div class="h-2.5 rounded-full bg-cream-150 relative overflow-hidden">
@@ -186,7 +213,7 @@ const categoryPieOptions: ChartOptions<'doughnut'> = {
       </template>
     </template>
 
-    <Modal v-if="retro.retroGoalModalOpen" title="新增目標追蹤" @close="retro.closeRetroGoalModal()">
+    <Modal v-if="retro.retroGoalModalOpen" :title="retro.retroGoalEditId ? '編輯目標追蹤' : '新增目標追蹤'" @close="retro.closeRetroGoalModal()">
       <label class="text-xs font-medium text-ink-700">目標名稱</label>
       <input
         v-model="retro.retroGoalForm.title"

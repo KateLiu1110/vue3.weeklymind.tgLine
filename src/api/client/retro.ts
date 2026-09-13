@@ -26,6 +26,14 @@ export async function createRetroGoal(input: {
   return res.data.data
 }
 
+export async function updateRetroGoal(
+  id: string,
+  input: Partial<{ title: string; start: string; totalDays: number | null; color: string; linkedPlanId: string | null }>,
+): Promise<RetroGoalDto> {
+  const res = await apiClient.patch<ApiSuccess<RetroGoalDto>>(`/retro/${id}`, input)
+  return res.data.data
+}
+
 export async function deleteRetroGoal(id: string): Promise<void> {
   await apiClient.delete(`/retro/${id}`)
 }

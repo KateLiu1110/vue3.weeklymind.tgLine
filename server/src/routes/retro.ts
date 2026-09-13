@@ -67,12 +67,27 @@ const goalInput = z.object({
   color: z.string().min(1),
   linkedPlanId: z.string().nullish(),
 })
+const goalPatch = goalInput.partial()
 
 retroRouter.post('/', async (req, res, next) => {
   try {
     const body = goalInput.parse(req.body)
     const goal = await prisma.retroGoal.create({ data: { ...body, userId: req.userId } })
     res.status(201).json({ ok: true, data: goal })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// 補選/改選「連結計畫」用：linkedPlanId 這個欄位是後來才加的，在這之前建立的舊目標
+// 沒有機會設定，只能靠這支補上，不然只能刪掉重新新增（會遺失原本的 id/建立時間）。
+retroRouter.patch('/:id', async (req, res, next) => {
+  try {
+    const body = goalPatch.parse(req.body)
+    const existing = await prisma.retroGoal.findUnique({ where: { id: req.params.id } })
+    if (!existing || existing.userId !== req.userId) throw ApiBusinessError.notFound('RetroGoal')
+    const goal = await prisma.retroGoal.update({ where: { id: req.params.id }, data: body })
+    res.json({ ok: true, data: goal })
   } catch (err) {
     next(err)
   }
