@@ -1,4 +1,141 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { useCustomModules } from '@/composables/useCustomModules'
+import { updateCustomModuleWithRetry } from '@/api/client/customModules'
+import type { CustomModule } from '@/stores/core'
+
+// 這頁原本是純示意圖（畫面上的按鈕沒有接任何邏輯），現在改成真的讀取「新增計畫」
+// 建立的目標／看板／Tab 模組，並讓打卡按鈕真的能寫回後端——邏輯對齊
+// server/src/routes/lineWebhook.ts 的 custom_task／custom_tab_item／custom_board_item／
+// all_done postback，讓這頁看到的內容跟畫面右邊真正的 LINE Bot 打卡結果一致。
+//
+// 這頁是獨立路由（不掛在 DashboardLayout 底下），沒有 DashboardLayout 的自動存檔
+// watch 可以借用，所以直接呼叫 updateCustomModuleWithRetry（跟 DashboardLayout.vue
+// 共用同一支，含重試邏輯）。
+const auth = useAuthStore()
+const modulesQuery = useCustomModules()
+const modules = ref<CustomModule[]>([])
+
+watch(
+  () => modulesQuery.data.value,
+  (data) => {
+    if (data && modules.value.length === 0) modules.value = JSON.parse(JSON.stringify(data))
+  },
+  { immediate: true },
+)
+
+interface DisplayTask {
+  key: string
+  moduleId: string
+  itemId: string
+  label: string
+  done: boolean
+  dotClass: string
+  subtitle: string
+}
+
+const KIND_DOT_CLASS: Record<CustomModule['kind'], string> = {
+  tab: 'bg-amber-solid',
+  goal: 'bg-link-blue',
+  board: 'bg-success-solid',
+}
+
+// 待辦清單：目標／Tab 模組的項目一律列出（完成與否用打勾樣式呈現，可以再點一次取消）；
+// 看板模組只列「待辦」欄的卡片——看板卡片沒有 done 欄位，打勾＝移到「已完成」欄
+// （跟 checkinCustomBoardItem 是同一件事），移過去之後就不會再出現在這份清單裡。
+const todayTasks = computed<DisplayTask[]>(() => {
+  const tasks: DisplayTask[] = []
+  for (const mod of modules.value) {
+    if (mod.kind === 'goal') {
+      for (const t of mod.dailyTasks) {
+        tasks.push({ key: `g-${t.id}`, moduleId: mod.id, itemId: t.id, label: t.title, done: t.done, dotClass: KIND_DOT_CLASS.goal, subtitle: mod.title })
+      }
+    } else if (mod.kind === 'tab') {
+      for (const cat of mod.tabCats) {
+        for (const it of cat.items) {
+          tasks.push({ key: `t-${it.id}`, moduleId: mod.id, itemId: it.id, label: it.name, done: it.done, dotClass: KIND_DOT_CLASS.tab, subtitle: `${mod.title} · ${cat.label}` })
+        }
+      }
+    } else if (mod.kind === 'board') {
+      const todoCol = mod.boardColumns.find((c) => c.label === '待辦')
+      for (const it of todoCol?.items ?? []) {
+        tasks.push({ key: `b-${it.id}`, moduleId: mod.id, itemId: it.id, label: it.name, done: false, dotClass: KIND_DOT_CLASS.board, subtitle: mod.title })
+      }
+    }
+  }
+  return tasks
+})
+
+const totalCount = computed(() =>
+  modules.value.reduce((sum, mod) => {
+    if (mod.kind === 'goal') return sum + mod.dailyTasks.length
+    if (mod.kind === 'tab') return sum + mod.tabCats.reduce((s, c) => s + c.items.length, 0)
+    return sum + mod.boardColumns.reduce((s, c) => s + c.items.length, 0)
+  }, 0),
+)
+const doneCount = computed(() =>
+  modules.value.reduce((sum, mod) => {
+    if (mod.kind === 'goal') return sum + mod.dailyTasks.filter((t) => t.done).length
+    if (mod.kind === 'tab') return sum + mod.tabCats.reduce((s, c) => s + c.items.filter((i) => i.done).length, 0)
+    return sum + (mod.boardColumns.find((c) => c.label === '已完成')?.items.length ?? 0)
+  }, 0),
+)
+const donePct = computed(() => (totalCount.value > 0 ? Math.round((doneCount.value / totalCount.value) * 100) : 0))
+
+function findModule(id: string) {
+  return modules.value.find((m) => m.id === id)
+}
+
+function toggleTask(task: DisplayTask) {
+  const mod = findModule(task.moduleId)
+  if (!mod) return
+  if (mod.kind === 'goal') {
+    const t = mod.dailyTasks.find((t) => t.id === task.itemId)
+    if (!t) return
+    t.done = !t.done
+  } else if (mod.kind === 'tab') {
+    const item = mod.tabCats.flatMap((c) => c.items).find((i) => i.id === task.itemId)
+    if (!item) return
+    item.done = !item.done
+  } else {
+    const todoCol = mod.boardColumns.find((c) => c.label === '待辦')
+    const doneCol = mod.boardColumns.find((c) => c.label === '已完成')
+    if (!todoCol || !doneCol) return
+    const idx = todoCol.items.findIndex((i) => i.id === task.itemId)
+    if (idx === -1) return
+    const [item] = todoCol.items.splice(idx, 1)
+    doneCol.items.push(item)
+  }
+  void updateCustomModuleWithRetry(mod)
+}
+
+// 「✓ 回報完成」「全部完成 ✅」對齊 lineWebhook.ts 的 all_done：把還沒完成的項目全部標記完成
+// （看板卡片一樣是搬到「已完成」欄），只對真的有異動的模組發送存檔。
+function checkinAllToday() {
+  const affected: CustomModule[] = []
+  for (const mod of modules.value) {
+    if (mod.kind === 'goal') {
+      const changed = mod.dailyTasks.some((t) => !t.done)
+      mod.dailyTasks.forEach((t) => (t.done = true))
+      if (changed) affected.push(mod)
+    } else if (mod.kind === 'tab') {
+      const items = mod.tabCats.flatMap((c) => c.items)
+      const changed = items.some((i) => !i.done)
+      items.forEach((i) => (i.done = true))
+      if (changed) affected.push(mod)
+    } else {
+      const todoCol = mod.boardColumns.find((c) => c.label === '待辦')
+      const doneCol = mod.boardColumns.find((c) => c.label === '已完成')
+      if (todoCol && doneCol && todoCol.items.length > 0) {
+        doneCol.items.push(...todoCol.items.splice(0, todoCol.items.length))
+        affected.push(mod)
+      }
+    }
+  }
+  for (const mod of affected) void updateCustomModuleWithRetry(mod)
+}
+</script>
 
 <template>
   <div
@@ -20,7 +157,7 @@
     </div>
 
     <div class="max-w-3xl mx-auto flex gap-10 flex-wrap justify-center items-start">
-      <!-- Screen 1: lock screen push -->
+      <!-- Screen 1: lock screen push（純示意圖，不可互動） -->
       <div class="flex flex-col items-center gap-3.5">
         <div
           class="w-[280px] h-[500px] rounded-card overflow-hidden flex flex-col px-4 pt-14 pb-6"
@@ -83,7 +220,7 @@
         <span class="text-gray-400 font-medium text-sm">鎖定畫面推播</span>
       </div>
 
-      <!-- Screen 2: LINE chat task card -->
+      <!-- Screen 2: LINE chat task card（真實資料，打卡按鈕可互動） -->
       <div class="flex flex-col items-center gap-3.5">
         <div class="w-[280px] h-[500px] rounded-card overflow-hidden flex flex-col bg-line-chat-bg">
           <div class="bg-line-brand px-4 py-3.5 flex items-center gap-2.5 shrink-0">
@@ -118,7 +255,20 @@
 
             <div class="flex gap-2 items-end">
               <div class="w-7.5 shrink-0"></div>
-              <div class="bg-white rounded-card overflow-hidden max-w-[84%]">
+
+              <!-- 未登入：這頁是獨立路由，訪客也進得來，但沒有真實資料可顯示 -->
+              <div v-if="!auth.isLoggedIn" class="bg-white rounded-card px-3.5 py-4 max-w-[84%] text-center">
+                <p class="m-0 text-xs text-gray-500">登入後才能看到你的真實代辦清單</p>
+                <RouterLink :to="{ name: 'login' }" class="mt-2 inline-block text-xs font-medium text-teal-brand">前往登入 →</RouterLink>
+              </div>
+
+              <!-- 已登入但還沒有任何計畫 -->
+              <div v-else-if="totalCount === 0" class="bg-white rounded-card px-3.5 py-4 max-w-[84%] text-center">
+                <p class="m-0 text-xs text-gray-500">尚無代辦事項</p>
+                <RouterLink :to="{ name: 'overview' }" class="mt-2 inline-block text-xs font-medium text-teal-brand">先到「計劃管理」新增計畫 →</RouterLink>
+              </div>
+
+              <div v-else class="bg-white rounded-card overflow-hidden max-w-[84%]">
                 <div class="bg-teal-brand px-4 py-3.5 text-white">
                   <div class="flex items-center justify-between">
                     <div>
@@ -126,62 +276,51 @@
                       <div class="text-xs opacity-85 mt-0.5">7 月 8 日 · 星期三</div>
                     </div>
                     <div class="text-right">
-                      <div class="font-medium leading-none" style="font-size: 22px">0/3</div>
+                      <div class="font-medium leading-none" style="font-size: 22px">{{ doneCount }}/{{ totalCount }}</div>
                       <div class="text-xs opacity-85">已完成</div>
                     </div>
                   </div>
                   <div class="h-1.5 rounded-full mt-3 overflow-hidden" style="background: rgba(255, 255, 255, 0.28)">
-                    <div class="h-full bg-white" style="width: 0%" />
+                    <div class="h-full bg-white" :style="{ width: donePct + '%' }" />
                   </div>
                 </div>
                 <div class="px-4 py-3.5 flex flex-col gap-3">
-                  <div class="flex items-center gap-2.5">
-                    <span class="w-5 h-5 rounded-md border-2 border-gray-300 shrink-0" />
-                    <div class="flex-1">
-                      <div class="font-medium text-sm text-gray-950">間歇跑訓練 5km</div>
+                  <div v-for="task in todayTasks" :key="task.key" class="flex items-center gap-2.5 cursor-pointer" @click="toggleTask(task)">
+                    <span
+                      class="w-5 h-5 rounded-md shrink-0 flex items-center justify-center text-white"
+                      :class="task.done ? 'bg-teal-brand' : 'border-2 border-gray-300'"
+                      style="font-size: 11px"
+                    >
+                      <span v-if="task.done">✓</span>
+                    </span>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-sm" :class="task.done ? 'text-gray-400 line-through' : 'text-gray-950'">{{ task.label }}</div>
                       <div class="flex items-center gap-1.5 mt-0.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-amber-solid" />
-                        <span class="text-xs text-gray-400">運動 · 18:00</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-2.5">
-                    <span class="w-5 h-5 rounded-md border-2 border-gray-300 shrink-0" />
-                    <div class="flex-1">
-                      <div class="font-medium text-sm text-gray-950">閱讀《原子習慣》30 頁</div>
-                      <div class="flex items-center gap-1.5 mt-0.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-link-blue" />
-                        <span class="text-xs text-gray-400">讀書 · 14:00</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-2.5">
-                    <span class="w-5 h-5 rounded-md border-2 border-gray-300 shrink-0" />
-                    <div class="flex-1">
-                      <div class="font-medium text-sm text-gray-950">補買雞胸肉、地瓜、燕麥</div>
-                      <div class="flex items-center gap-1.5 mt-0.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-success-solid" />
-                        <span class="text-xs text-gray-400">採買 · 11:00</span>
+                        <span class="w-1.5 h-1.5 rounded-full" :class="task.dotClass" />
+                        <span class="text-xs text-gray-400">{{ task.subtitle }}</span>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div class="flex border-t border-gray-100-alt">
-                  <div class="flex-1 text-center py-3.5 text-sm font-medium text-teal-brand border-r border-gray-100-alt">
+                  <div class="flex-1 text-center py-3.5 text-sm font-medium text-teal-brand border-r border-gray-100-alt cursor-pointer" @click="checkinAllToday">
                     ✓ 回報完成
                   </div>
-                  <div class="flex-1 text-center py-3.5 text-sm font-medium text-gray-500">查看全部</div>
+                  <RouterLink :to="{ name: 'overview' }" class="flex-1 text-center py-3.5 text-sm font-medium text-gray-500">查看全部</RouterLink>
                 </div>
               </div>
             </div>
 
             <div class="flex gap-2 justify-end flex-wrap">
-              <div class="bg-white border border-teal-brand text-teal-brand rounded-full px-4 py-2 text-xs font-medium">
+              <div
+                class="bg-white border border-teal-brand text-teal-brand rounded-full px-4 py-2 text-xs font-medium cursor-pointer"
+                @click="checkinAllToday"
+              >
                 全部完成 ✅
               </div>
-              <div class="bg-white border border-gray-300 text-gray-500 rounded-full px-4 py-2 text-xs font-medium">
+              <RouterLink :to="{ name: 'overview' }" class="bg-white border border-gray-300 text-gray-500 rounded-full px-4 py-2 text-xs font-medium">
                 調整今日計畫
-              </div>
+              </RouterLink>
             </div>
           </div>
 

@@ -39,16 +39,39 @@ async function unlock(userId: string, key: string) {
   })
 }
 
-/** 累積打卡次數：網頁「今日打卡」跟 LINE Bot 打卡（運動/多益/學習紀錄）都算，
- * 覆盤中心跟主題色彩兩個解鎖條件共用同一套計算方式，只是門檻不同。 */
+/** 自訂模組（目標/看板/Tab 範本，「新增計畫」建出來的頁面）裡打勾/移完成的項目數，
+ * 橫跨使用者所有模組。算法對齊前端 stores/exec.ts 的 checkedGoalsCount getter——
+ * 兩邊看到的「打了幾次卡」要是同一個答案，不是各自一套。 */
+async function getCustomModuleCheckins(userId: string): Promise<number> {
+  const modules = await prisma.customModule.findMany({
+    where: { userId },
+    include: {
+      dailyTasks: { select: { done: true } },
+      tabCats: { include: { items: { select: { done: true } } } },
+      boardColumns: { select: { label: true, items: { select: { id: true } } } },
+    },
+  })
+  let count = 0
+  for (const mod of modules) {
+    if (mod.kind === 'goal') count += mod.dailyTasks.filter((t) => t.done).length
+    else if (mod.kind === 'tab') count += mod.tabCats.flatMap((c) => c.items).filter((i) => i.done).length
+    else if (mod.kind === 'board') count += mod.boardColumns.find((c) => c.label === '已完成')?.items.length ?? 0
+  }
+  return count
+}
+
+/** 累積打卡次數：網頁「今日打卡」、自訂模組（目標/看板/Tab 範本）打勾、臨時待辦事項、
+ * LINE Bot 打卡（運動/多益/學習紀錄）都算，覆盤中心跟主題色彩兩個解鎖條件共用同一套
+ * 計算方式，只是門檻不同。 */
 async function getTotalCheckins(userId: string): Promise<number> {
-  const [planCheckins, sportLogs, toeicDays, dailyTasks] = await Promise.all([
+  const [planCheckins, sportLogs, toeicDays, dailyTasks, customModuleCheckins] = await Promise.all([
     prisma.plan.aggregate({ where: { userId }, _sum: { checkinsDone: true } }),
     prisma.sportLog.count({ where: { userId } }),
     prisma.toeicProgress.count({ where: { userId } }),
     prisma.dailyTask.count({ where: { userId } }),
+    getCustomModuleCheckins(userId),
   ])
-  return (planCheckins._sum.checkinsDone ?? 0) + sportLogs + toeicDays + dailyTasks
+  return (planCheckins._sum.checkinsDone ?? 0) + sportLogs + toeicDays + dailyTasks + customModuleCheckins
 }
 
 /** 在任何可能改變解鎖條件的動作之後呼叫（新增計畫、打卡）；已解鎖的不會重複判斷。
@@ -80,6 +103,21 @@ export async function checkAndUnlockAchievements(userId: string): Promise<string
 
   await Promise.all(tasks)
   return newlyUnlocked
+}
+
+/** 給存檔動作結束後「不擋回應」的呼叫端用（見 routes/customModules.ts、routes/dailyTasks.ts）：
+ * res.json() 送出之後才觸發，本身沒有 await，所以呼叫端一定要把這支的 Promise 吞掉，
+ * 不能整條沒接 .catch() 就丟著——沒接住的話，這裡任何一步出錯都會變成 unhandled
+ * rejection，Node 預設會直接把整個 process 砍掉（等於一次背景檢查失敗，全站當機）。
+ * plans.ts 的「今日打卡」是唯一例外：它在 res.json() 之前 await，已經在路由自己的
+ * try/catch 裡，所以繼續用 checkAndUnlockAchievements + notifyUnlocks 那組即可。 */
+export async function checkAndNotifyAchievementsSafely(userId: string): Promise<void> {
+  try {
+    const newlyUnlocked = await checkAndUnlockAchievements(userId)
+    await notifyUnlocks(userId, newlyUnlocked)
+  } catch (err) {
+    console.error('[achievements] 背景解鎖檢查失敗', userId, err)
+  }
 }
 
 export async function getUnlockedKeys(userId: string): Promise<string[]> {

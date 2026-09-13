@@ -44,14 +44,19 @@ plansRouter.post('/', async (req, res, next) => {
 })
 
 // 「今日打卡」：ExecView 的打卡按鈕，累積次數也是覆盤中心解鎖條件之一（見 lib/achievements.ts）。
+// 同時留一筆 PlanCheckin（見 schema.prisma 註解）：checkinsDone 只是累加總數沒有日期，
+// 「連續打卡天數」（lib/streak.ts）沒有這筆紀錄的話永遠不知道「今天」有沒有打過卡。
 plansRouter.patch('/:id/checkin', async (req, res, next) => {
   try {
     const exists = await prisma.plan.findUnique({ where: { id: req.params.id } })
     if (!exists || exists.userId !== req.userId) throw ApiBusinessError.notFound('Plan')
-    const plan = await prisma.plan.update({
-      where: { id: req.params.id },
-      data: { checkinsDone: { increment: 1 } },
-    })
+    const [plan] = await Promise.all([
+      prisma.plan.update({
+        where: { id: req.params.id },
+        data: { checkinsDone: { increment: 1 } },
+      }),
+      prisma.planCheckin.create({ data: { userId: req.userId, planId: req.params.id } }),
+    ])
     const newlyUnlocked = await checkAndUnlockAchievements(req.userId)
     await notifyUnlocks(req.userId, newlyUnlocked)
     res.json({ ok: true, data: plan })

@@ -50,6 +50,8 @@ model User {
   sportCategoryTabs SportCategoryTab[]
   sportTodoItems    SportTodoItem[]
   retroGoals        RetroGoal[]
+  execCategories    ExecCategory[]
+  planCheckins      PlanCheckin[]
   achievements      Achievement[]
   schedules         Schedule[]
   focusTasks        FocusTask[]
@@ -76,6 +78,23 @@ model Plan {
   linkedCustomId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  checkins PlanCheckin[]
+
+  @@index([userId])
+}
+
+// 執行中心「今日打卡」每次點擊留一筆紀錄（見 routes/plans.ts 的 /:id/checkin）。
+// Plan.checkinsDone 只是累加總數，沒有日期，沒辦法回答「哪幾天有打卡」，導致
+// 「連續打卡天數」（lib/streak.ts）跟這個打卡按鈕完全沒有關聯——這張表補上那個
+// 缺的日期維度，用法跟 SportLog/ToeicProgress 一樣是「一筆＝一次事件」。
+model PlanCheckin {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  checkedAt DateTime @default(now())
 
   @@index([userId])
 }
@@ -245,14 +264,32 @@ model SportTodoItem {
   @@index([userId])
 }
 
-// 「覆盤中心」的長期目標卡片。
+// 「覆盤中心」的長期目標卡片。linkedPlanId 選填——連結「計畫中心」的某個 Plan 之後，
+// 進度表要顯示那個計畫的實際完成度（Plan.pct），不是單純用開始日期／預計天數推算的
+// 時間流逝百分比（沒連結計畫的舊用法就繼續用時間推算，保留純長期目標追蹤的彈性）。
 model RetroGoal {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  title        String
+  start        String
+  totalDays    Int?
+  color        String
+  linkedPlanId String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+// 「執行中心」分類每日進度底下手動新增的分類（跟計畫自動生成的分類是分開兩種來源，
+// 見 src/views/dashboard/ExecView.vue：每個 Plan 都會自動生成一筆用 Plan.pct 當數值、
+// 不可刪除的分類，這張表只存使用者自己額外新增、可刪除、數值手動輸入的分類）。
+model ExecCategory {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  title     String
-  start     String
-  totalDays Int?
+  name      String
+  value     Int      @default(0)
   color     String
   createdAt DateTime @default(now())
 

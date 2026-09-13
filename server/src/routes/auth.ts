@@ -4,6 +4,7 @@ import { prisma } from '../db.js'
 import { ApiBusinessError } from '../errors/ApiBusinessError.js'
 import { signToken } from '../lib/jwt.js'
 import { requireAuth } from '../middleware/auth.js'
+import { seedDemoContentFor } from '../lib/demoContent.js'
 
 export const authRouter = Router()
 
@@ -40,10 +41,15 @@ authRouter.patch('/preferences', requireAuth, async (req, res, next) => {
 
 // 登入頁的「新人體驗」按鈕：不用走 LINE OAuth 或簡訊驗證，直接建一個全新、沒有
 // phone/lineUserId 的帳號，讓人可以立刻用「全新使用者」的角度看整個 App（訪客模式
-// 只能看，這個是真的登入、資料保證是空的）。
+// 只能看，這個是真的登入）。帳號建好後灌入跟 server/prisma/seed.ts 示範帳號同一份
+// 範例資料，讓體驗的人能馬上看到有內容的畫面，而不是空畫面；每次點都是自己獨立的
+// 一份副本，不會跟其他人或示範帳號互相干擾。
 authRouter.post('/new-user', async (_req, res, next) => {
   try {
-    const user = await prisma.user.create({ data: { displayName: '新朋友' } })
+    const created = await prisma.user.create({ data: { displayName: '新朋友' } })
+    await seedDemoContentFor(created.id)
+    // seedDemoContentFor 會改掉 goalTitle，重撈一次才能把最新的 user 帶回前端。
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: created.id } })
     const token = signToken(user.id)
     res.status(201).json({ ok: true, data: { token, user } })
   } catch (err) {
@@ -58,7 +64,7 @@ interface PendingCode {
   expiresAt: number
 }
 
-// Demo-only: no real SMS gateway is wired up (see LOGIN_操作手冊.md). Codes live
+// Demo-only: no real SMS gateway is wired up. Codes live
 // in memory and are "sent" by logging to the server console; the dev response
 // also echoes the code back so the login/register pages can show a hint.
 const pendingCodes = new Map<string, PendingCode>()

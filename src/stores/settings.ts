@@ -17,7 +17,6 @@ export const AVATAR_OPTIONS = [
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
     selectedAvatar: 'default' as string,
-    phone: '0912-345-678',
     linkCategoryRules: [
       { id: 'ig', iconKey: 'camera', platform: 'Instagram', category: '設計靈感' },
       { id: 'threads', iconKey: 'threads', platform: 'Threads', category: '前端知識' },
