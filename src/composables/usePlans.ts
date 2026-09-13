@@ -51,6 +51,11 @@ export function usePlanMutations() {
       invalidate()
       // 打卡次數會影響覆盤中心的解鎖條件，順便讓側邊欄鎖定狀態跟著更新。
       queryClient.invalidateQueries({ queryKey: queryKeys.achievements.all })
+      // 打卡現在也會留一筆 PlanCheckin（見 server/src/lib/streak.ts），連續天數
+      // 理論上會跟著變，但沒有這行畫面上的「連續 X 天」不會即時反映，要重新整理
+      // 頁面才看得到——這支 query 沒有另外複製進 Pinia store，單純 invalidate
+      // 就能讓畫面即時更新。
+      queryClient.invalidateQueries({ queryKey: queryKeys.streak.all })
     },
   })
 

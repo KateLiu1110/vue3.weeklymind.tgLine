@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { queryKeys } from '@/api/queryKeys'
-import { createRetroGoal, deleteRetroGoal, fetchRetroGoals, fetchRetroSummary } from '@/api/client/retro'
+import { createRetroGoal, deleteRetroGoal, fetchRetroGoals, fetchRetroSummary, updateRetroGoal } from '@/api/client/retro'
 import { useAuthStore } from '@/stores/auth'
 
 export function useRetroGoals() {
@@ -35,10 +35,20 @@ export function useRetroMutations() {
       createRetroGoal(input),
     onSuccess: invalidate,
   })
+  const updateGoalMutation = useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string
+      input: Partial<{ title: string; start: string; totalDays: number | null; color: string; linkedPlanId: string | null }>
+    }) => updateRetroGoal(id, input),
+    onSuccess: invalidate,
+  })
   const deleteGoalMutation = useMutation({
     mutationFn: (id: string) => deleteRetroGoal(id),
     onSuccess: invalidate,
   })
 
-  return { createGoalMutation, deleteGoalMutation }
+  return { createGoalMutation, updateGoalMutation, deleteGoalMutation }
 }

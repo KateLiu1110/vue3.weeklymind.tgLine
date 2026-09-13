@@ -17,19 +17,20 @@ export function toDateKey(d: Date): string {
   return DATE_KEY_FORMATTER.format(d)
 }
 
-/** 抓「每日任務完成」「運動紀錄」「多益每日打卡」這三種有實際日期的活動，回傳
- * 每個日期（YYYY-MM-DD）有幾筆紀錄。連續打卡天數（getStreakDays）跟覆盤中心的
- * 「本週達成率變化」（見 routes/retro.ts 的 /summary）都是從同一份資料算出來的，
- * 確保「這幾天有沒有打卡」在全站看到的都是同一個答案，不是兩份各自的示意數字。
- * since 省略時回傳所有歷史紀錄（給連續打卡天數用，需要往回無限找）。 */
+/** 抓「每日任務完成」「運動紀錄」「多益每日打卡」「執行中心今日打卡」這幾種有實際
+ * 日期的活動，回傳每個日期（YYYY-MM-DD）有幾筆紀錄。連續打卡天數（getStreakDays）
+ * 跟覆盤中心的「本週達成率變化」（見 routes/retro.ts 的 /summary）都是從同一份資料
+ * 算出來的，確保「這幾天有沒有打卡」在全站看到的都是同一個答案，不是兩份各自的
+ * 示意數字。since 省略時回傳所有歷史紀錄（給連續打卡天數用，需要往回無限找）。 */
 export async function getDailyActivityCounts(userId: string, since?: Date): Promise<Map<string, number>> {
-  const [dailyTasks, sportLogs, toeicProgress] = await Promise.all([
+  const [dailyTasks, sportLogs, toeicProgress, planCheckins] = await Promise.all([
     prisma.dailyTask.findMany({
       where: { userId, completedAt: since ? { gte: since } : { not: null } },
       select: { completedAt: true },
     }),
     prisma.sportLog.findMany({ where: { userId, loggedAt: since ? { gte: since } : undefined }, select: { loggedAt: true } }),
     prisma.toeicProgress.findMany({ where: { userId, date: since ? { gte: since } : undefined }, select: { date: true } }),
+    prisma.planCheckin.findMany({ where: { userId, checkedAt: since ? { gte: since } : undefined }, select: { checkedAt: true } }),
   ])
 
   const counts = new Map<string, number>()
@@ -37,6 +38,7 @@ export async function getDailyActivityCounts(userId: string, since?: Date): Prom
   for (const t of dailyTasks) if (t.completedAt) bump(t.completedAt)
   for (const s of sportLogs) bump(s.loggedAt)
   for (const p of toeicProgress) bump(p.date)
+  for (const c of planCheckins) bump(c.checkedAt)
   return counts
 }
 

@@ -313,6 +313,10 @@ export const useCoreStore = defineStore('core', {
       if (!useAuthStore().requireLogin()) return
       this.plans = this.plans.filter((p) => p.id !== id)
       await deletePlan(id)
+      // 刪計畫會連帶刪掉底下的 PlanCheckin（見 schema.prisma 的 onDelete: Cascade），
+      // 連續打卡天數可能因此往下掉，不 invalidate 的話「連續 X 天」卡片會一直停在
+      // 刪除前的舊數字，要重新整理頁面才會變。
+      queryClient.invalidateQueries({ queryKey: queryKeys.streak.all })
     },
     // 「計劃管理」的里程碑卡片一直沒有刪除按鈕——DashboardLayout 只在 core.milestones
     // 是空陣列時才會用 query 資料 hydrate 一次（見 DashboardLayout.vue 的
